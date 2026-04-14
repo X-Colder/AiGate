@@ -18,8 +18,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.LogLevel != "info" {
 		t.Errorf("expected default log level info, got %s", cfg.LogLevel)
 	}
-	if len(cfg.Providers) != 2 {
-		t.Errorf("expected 2 default providers, got %d", len(cfg.Providers))
+	if len(cfg.Providers) != 6 {
+		t.Errorf("expected 6 default providers, got %d", len(cfg.Providers))
 	}
 	if cfg.Providers["openai"].Model != "gpt-3.5-turbo" {
 		t.Errorf("expected openai model gpt-3.5-turbo, got %s", cfg.Providers["openai"].Model)

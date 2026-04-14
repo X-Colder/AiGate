@@ -183,3 +183,140 @@ func TestAnthropicProvider_Name(t *testing.T) {
 		t.Errorf("expected anthropic, got %s", p.Name())
 	}
 }
+
+// =============================================================
+// OpenAICompatibleProvider 测试（DeepSeek、豆包、Qwen、Kimi 共用）
+// =============================================================
+
+func TestOpenAICompatibleProvider_Name(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{"deepseek"},
+		{"doubao"},
+		{"qwen"},
+		{"kimi"},
+	}
+	for _, tt := range tests {
+		p := NewOpenAICompatibleProvider(tt.name, config.ProviderConfig{Timeout: 10})
+		if p.Name() != tt.name {
+			t.Errorf("expected %s, got %s", tt.name, p.Name())
+		}
+	}
+}
+
+func TestOpenAICompatibleProvider_ChatStream_NotImplemented(t *testing.T) {
+	p := NewOpenAICompatibleProvider("deepseek", config.ProviderConfig{Timeout: 10})
+	err := p.ChatStream(context.Background(), &model.ChatRequest{}, func(chunk *model.StreamChunk) error {
+		return nil
+	})
+	if err == nil {
+		t.Error("expected error for unimplemented stream")
+	}
+}
+
+func TestInitProviders_DeepSeekEnabled(t *testing.T) {
+	cfg := &config.Config{
+		Providers: map[string]config.ProviderConfig{
+			"deepseek": {
+				Enabled: true,
+				APIKey:  "test-key",
+				BaseURL: "https://api.deepseek.com/v1",
+				Model:   "deepseek-chat",
+				Timeout: 60,
+			},
+		},
+	}
+	registry := InitProviders(cfg)
+	p, err := registry.Get("deepseek")
+	if err != nil {
+		t.Fatalf("expected deepseek provider, got error: %v", err)
+	}
+	if p.Name() != "deepseek" {
+		t.Errorf("expected deepseek, got %s", p.Name())
+	}
+}
+
+func TestInitProviders_DoubaoEnabled(t *testing.T) {
+	cfg := &config.Config{
+		Providers: map[string]config.ProviderConfig{
+			"doubao": {
+				Enabled: true,
+				APIKey:  "test-key",
+				BaseURL: "https://ark.cn-beijing.volces.com/api/v3",
+				Model:   "doubao-pro-32k",
+				Timeout: 60,
+			},
+		},
+	}
+	registry := InitProviders(cfg)
+	p, err := registry.Get("doubao")
+	if err != nil {
+		t.Fatalf("expected doubao provider, got error: %v", err)
+	}
+	if p.Name() != "doubao" {
+		t.Errorf("expected doubao, got %s", p.Name())
+	}
+}
+
+func TestInitProviders_QwenEnabled(t *testing.T) {
+	cfg := &config.Config{
+		Providers: map[string]config.ProviderConfig{
+			"qwen": {
+				Enabled: true,
+				APIKey:  "test-key",
+				BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+				Model:   "qwen-turbo",
+				Timeout: 60,
+			},
+		},
+	}
+	registry := InitProviders(cfg)
+	p, err := registry.Get("qwen")
+	if err != nil {
+		t.Fatalf("expected qwen provider, got error: %v", err)
+	}
+	if p.Name() != "qwen" {
+		t.Errorf("expected qwen, got %s", p.Name())
+	}
+}
+
+func TestInitProviders_KimiEnabled(t *testing.T) {
+	cfg := &config.Config{
+		Providers: map[string]config.ProviderConfig{
+			"kimi": {
+				Enabled: true,
+				APIKey:  "test-key",
+				BaseURL: "https://api.moonshot.cn/v1",
+				Model:   "moonshot-v1-8k",
+				Timeout: 60,
+			},
+		},
+	}
+	registry := InitProviders(cfg)
+	p, err := registry.Get("kimi")
+	if err != nil {
+		t.Fatalf("expected kimi provider, got error: %v", err)
+	}
+	if p.Name() != "kimi" {
+		t.Errorf("expected kimi, got %s", p.Name())
+	}
+}
+
+func TestInitProviders_AllEnabled(t *testing.T) {
+	cfg := &config.Config{
+		Providers: map[string]config.ProviderConfig{
+			"openai":    {Enabled: true, Timeout: 30},
+			"anthropic": {Enabled: true, Timeout: 30},
+			"deepseek":  {Enabled: true, Timeout: 60},
+			"doubao":    {Enabled: true, Timeout: 60},
+			"qwen":      {Enabled: true, Timeout: 60},
+			"kimi":      {Enabled: true, Timeout: 60},
+		},
+	}
+	registry := InitProviders(cfg)
+	list := registry.List()
+	if len(list) != 6 {
+		t.Errorf("expected 6 providers, got %d", len(list))
+	}
+}

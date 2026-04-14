@@ -1,3 +1,5 @@
+// Package handler 实现 HTTP 请求处理器层（Controller），
+// 负责参数校验、调用 Service 层、格式化响应。
 package handler
 
 import (
@@ -11,7 +13,7 @@ import (
 	"github.com/aigate/service"
 )
 
-// ChatHandler 聊天处理器
+// ChatHandler 聊天请求处理器，持有 ChatService 实例
 type ChatHandler struct {
 	chatService *service.ChatService
 }
@@ -23,15 +25,17 @@ func NewChatHandler(chatService *service.ChatService) *ChatHandler {
 	}
 }
 
-// Chat 处理聊天请求
+// Chat 处理 POST /api/v1/chat 聊天请求。
+// 根据 stream 字段决定返回普通 JSON 响应或 SSE 流式响应。
 func (h *ChatHandler) Chat(c *gin.Context) {
+	// 绑定并校验请求参数
 	var req model.ChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid request: "+err.Error())
 		return
 	}
 
-	// 非流式请求
+	// 非流式请求：调用 Service 获取完整响应后一次性返回
 	if !req.Stream {
 		resp, err := h.chatService.Chat(c.Request.Context(), &req)
 		if err != nil {
@@ -43,7 +47,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 		return
 	}
 
-	// 流式请求 (SSE)
+	// 流式请求：设置 SSE 响应头，通过 callback 逐块推送数据
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
@@ -61,7 +65,7 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 	}
 }
 
-// ListProviders 获取可用的 AI 提供者列表
+// ListProviders 处理 GET /api/v1/providers，返回所有已启用的 AI 提供者列表
 func (h *ChatHandler) ListProviders(c *gin.Context) {
 	providers := h.chatService.ListProviders()
 	response.Success(c, providers)

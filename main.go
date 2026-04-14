@@ -1,3 +1,6 @@
+// AiGate - AI 网关服务
+// 统一多个 AI 服务提供者（OpenAI、Anthropic、DeepSeek、豆包、通义千问、Kimi）的接口，
+// 通过配置文件动态启用/禁用提供者，对外提供统一的 HTTP API。
 package main
 
 import (
@@ -9,19 +12,19 @@ import (
 )
 
 func main() {
-	// 加载配置
+	// 1. 加载配置（config.yaml 或环境变量指定的路径）
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// 初始化日志
+	// 2. 初始化日志系统
 	logger.Init(cfg.LogLevel)
 
-	// 初始化路由
+	// 3. 初始化路由（含 Provider、Service、Handler 的依赖注入）
 	r := router.Setup(cfg)
 
-	// 启动服务
+	// 4. 启动 HTTP 服务
 	addr := ":" + cfg.Server.Port
 	logger.Infof("AiGate server starting on %s", addr)
 	if err := r.Run(addr); err != nil {

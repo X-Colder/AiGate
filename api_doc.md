@@ -82,6 +82,22 @@ HTTP/1.1 200 OK
     {
       "name": "anthropic",
       "enabled": true
+    },
+    {
+      "name": "deepseek",
+      "enabled": true
+    },
+    {
+      "name": "doubao",
+      "enabled": true
+    },
+    {
+      "name": "qwen",
+      "enabled": true
+    },
+    {
+      "name": "kimi",
+      "enabled": true
     }
   ]
 }
@@ -132,7 +148,7 @@ Content-Type: application/json
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| provider | string | 是 | AI 提供者名称（`openai`、`anthropic`） |
+| provider | string | 是 | AI 提供者名称（`openai`、`anthropic`、`deepseek`、`doubao`、`qwen`、`kimi`） |
 | model | string | 否 | 模型名称，不填则使用配置中的默认模型 |
 | messages | Message[] | 是 | 消息列表 |
 | stream | bool | 否 | 是否使用流式响应，默认 `false` |
@@ -244,7 +260,13 @@ data: {"id":"chunk-2","provider":"openai","model":"gpt-4","delta":" World","done
 
 ## 支持的提供者
 
-| 提供者 | 标识 | 默认模型 | 说明 |
-|--------|------|----------|------|
-| OpenAI | `openai` | gpt-3.5-turbo | 支持 GPT 系列模型 |
-| Anthropic | `anthropic` | claude-3-sonnet-20240229 | 支持 Claude 系列模型 |
+| 提供者 | 标识 | API 地址 | 默认模型 | 说明 |
+|--------|------|----------|----------|------|
+| OpenAI | `openai` | api.openai.com | gpt-3.5-turbo | 支持 GPT 系列模型 |
+| Anthropic | `anthropic` | api.anthropic.com | claude-3-sonnet-20240229 | 支持 Claude 系列模型 |
+| DeepSeek | `deepseek` | api.deepseek.com/v1 | deepseek-chat | 兼容 OpenAI 协议，支持 DeepSeek 系列模型 |
+| 豆包 | `doubao` | ark.cn-beijing.volces.com/api/v3 | doubao-pro-4k | 字节跳动豆包大模型，兼容 OpenAI 协议 |
+| 通义千问 | `qwen` | dashscope.aliyuncs.com/compatible-mode/v1 | qwen-turbo | 阿里通义千问，兼容 OpenAI 协议 |
+| Kimi | `kimi` | api.moonshot.cn/v1 | moonshot-v1-8k | Moonshot Kimi 大模型，兼容 OpenAI 协议 |
+
+> **注意**：国内四个 AI 服务（DeepSeek、豆包、Qwen、Kimi）均兼容 OpenAI Chat Completions 接口协议，使用统一的 `OpenAICompatibleProvider` 基类实现。

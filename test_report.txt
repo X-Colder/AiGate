@@ -14,7 +14,7 @@ go: no such tool "covdata"
 --- PASS: TestLoad_InvalidYAML (0.00s)
 PASS
 coverage: 93.3% of statements
-ok  	github.com/aigate/config	(cached)	coverage: 93.3% of statements
+ok  	github.com/aigate/config	0.789s	coverage: 93.3% of statements
 === RUN   TestChat_Success
 --- PASS: TestChat_Success (0.00s)
 === RUN   TestChat_InvalidJSON
@@ -22,13 +22,13 @@ ok  	github.com/aigate/config	(cached)	coverage: 93.3% of statements
 === RUN   TestChat_MissingProvider
 --- PASS: TestChat_MissingProvider (0.00s)
 === RUN   TestChat_ProviderNotFound
-[ERROR] 2026/04/14 18:49:01 logger.go:64: Chat error: get provider error: provider nonexistent not found
+[ERROR] 2026/04/14 21:08:21 logger.go:64: Chat error: get provider error: provider nonexistent not found
 --- PASS: TestChat_ProviderNotFound (0.00s)
 === RUN   TestListProviders
 --- PASS: TestListProviders (0.00s)
 PASS
 coverage: 57.7% of statements
-ok  	github.com/aigate/handler	(cached)	coverage: 57.7% of statements
+ok  	github.com/aigate/handler	0.627s	coverage: 57.7% of statements
 === RUN   TestCors_Headers
 --- PASS: TestCors_Headers (0.00s)
 === RUN   TestCors_Options
@@ -90,9 +90,23 @@ ok  	github.com/aigate/pkg/response	(cached)	coverage: 100.0% of statements
 --- PASS: TestOpenAIProvider_Name (0.00s)
 === RUN   TestAnthropicProvider_Name
 --- PASS: TestAnthropicProvider_Name (0.00s)
+=== RUN   TestOpenAICompatibleProvider_Name
+--- PASS: TestOpenAICompatibleProvider_Name (0.00s)
+=== RUN   TestOpenAICompatibleProvider_ChatStream_NotImplemented
+--- PASS: TestOpenAICompatibleProvider_ChatStream_NotImplemented (0.00s)
+=== RUN   TestInitProviders_DeepSeekEnabled
+--- PASS: TestInitProviders_DeepSeekEnabled (0.00s)
+=== RUN   TestInitProviders_DoubaoEnabled
+--- PASS: TestInitProviders_DoubaoEnabled (0.00s)
+=== RUN   TestInitProviders_QwenEnabled
+--- PASS: TestInitProviders_QwenEnabled (0.00s)
+=== RUN   TestInitProviders_KimiEnabled
+--- PASS: TestInitProviders_KimiEnabled (0.00s)
+=== RUN   TestInitProviders_AllEnabled
+--- PASS: TestInitProviders_AllEnabled (0.00s)
 PASS
-coverage: 24.4% of statements
-ok  	github.com/aigate/provider	(cached)	coverage: 24.4% of statements
+coverage: 23.2% of statements
+ok  	github.com/aigate/provider	1.638s	coverage: 23.2% of statements
 === RUN   TestSetup
 --- PASS: TestSetup (0.00s)
 === RUN   TestAPI_Health_OK
@@ -114,7 +128,7 @@ ok  	github.com/aigate/provider	(cached)	coverage: 24.4% of statements
 === RUN   TestAPI_Chat_MissingMessages
 --- PASS: TestAPI_Chat_MissingMessages (0.00s)
 === RUN   TestAPI_Chat_ProviderNotFound
-[ERROR] 2026/04/14 19:10:26 logger.go:64: Chat error: get provider error: provider openai not found
+[ERROR] 2026/04/14 21:08:22 logger.go:64: Chat error: get provider error: provider openai not found
 --- PASS: TestAPI_Chat_ProviderNotFound (0.00s)
 === RUN   TestAPI_Chat_MethodNotAllowed
 --- PASS: TestAPI_Chat_MethodNotAllowed (0.00s)
@@ -122,11 +136,16 @@ ok  	github.com/aigate/provider	(cached)	coverage: 24.4% of statements
 --- PASS: TestAPI_NotFound (0.00s)
 === RUN   TestAPI_NotFound_V1
 --- PASS: TestAPI_NotFound_V1 (0.00s)
+=== RUN   TestAPI_Providers_AllDomestic
+--- PASS: TestAPI_Providers_AllDomestic (0.00s)
+=== RUN   TestAPI_Chat_DeepSeekNotRegistered
+[ERROR] 2026/04/14 21:08:22 logger.go:64: Chat error: get provider error: provider deepseek not found
+--- PASS: TestAPI_Chat_DeepSeekNotRegistered (0.00s)
 === RUN   TestAPI_CORS_Preflight
 --- PASS: TestAPI_CORS_Preflight (0.00s)
 PASS
 coverage: 100.0% of statements
-ok  	github.com/aigate/router	0.617s	coverage: 100.0% of statements
+ok  	github.com/aigate/router	1.309s	coverage: 100.0% of statements
 === RUN   TestNewChatService
 --- PASS: TestNewChatService (0.00s)
 === RUN   TestChat_Success
@@ -143,4 +162,4 @@ ok  	github.com/aigate/router	0.617s	coverage: 100.0% of statements
 --- PASS: TestListProviders (0.00s)
 PASS
 coverage: 100.0% of statements
-ok  	github.com/aigate/service	(cached)	coverage: 100.0% of statements
+ok  	github.com/aigate/service	0.932s	coverage: 100.0% of statements

@@ -13,13 +13,15 @@ import (
 	"github.com/aigate/model"
 )
 
-// OpenAIProvider OpenAI 服务提供者
+// OpenAIProvider OpenAI 官方 API 提供者实现。
+// 通过 OpenAI Chat Completions API 与 GPT 系列模型进行交互。
+// 接口文档: https://platform.openai.com/docs/api-reference/chat
 type OpenAIProvider struct {
-	cfg    config.ProviderConfig
-	client *http.Client
+	cfg    config.ProviderConfig // OpenAI 的连接配置
+	client *http.Client          // 带超时的 HTTP 客户端
 }
 
-// NewOpenAIProvider 创建 OpenAI 提供者
+// NewOpenAIProvider 创建 OpenAI Provider 实例，使用指定配置初始化 HTTP 客户端
 func NewOpenAIProvider(cfg config.ProviderConfig) *OpenAIProvider {
 	return &OpenAIProvider{
 		cfg: cfg,
@@ -29,17 +31,20 @@ func NewOpenAIProvider(cfg config.ProviderConfig) *OpenAIProvider {
 	}
 }
 
+// Name 返回提供者标识 "openai"
 func (p *OpenAIProvider) Name() string {
 	return "openai"
 }
 
+// Chat 向 OpenAI /chat/completions 接口发送聊天请求。
+// 支持通过 req.Model 指定模型，未指定时使用配置中的默认模型。
 func (p *OpenAIProvider) Chat(ctx context.Context, req *model.ChatRequest) (*model.ChatResponse, error) {
 	modelName := req.Model
 	if modelName == "" {
 		modelName = p.cfg.Model
 	}
 
-	// 构建 OpenAI 请求
+	// 构建 OpenAI 标准请求体
 	body := map[string]interface{}{
 		"model":    modelName,
 		"messages": req.Messages,
@@ -72,7 +77,7 @@ func (p *OpenAIProvider) Chat(ctx context.Context, req *model.ChatRequest) (*mod
 		return nil, fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 
-	// 解析 OpenAI 响应
+	// 解析 OpenAI 响应并提取第一个 choice 的内容
 	var openaiResp openAIChatResponse
 	if err := json.Unmarshal(respBody, &openaiResp); err != nil {
 		return nil, fmt.Errorf("unmarshal response error: %w", err)
@@ -96,12 +101,12 @@ func (p *OpenAIProvider) Chat(ctx context.Context, req *model.ChatRequest) (*mod
 	}, nil
 }
 
+// ChatStream 流式聊天接口（SSE），当前为预留接口
 func (p *OpenAIProvider) ChatStream(ctx context.Context, req *model.ChatRequest, callback func(chunk *model.StreamChunk) error) error {
-	// TODO: 实现流式响应
 	return fmt.Errorf("stream not implemented yet for OpenAI provider")
 }
 
-// OpenAI 响应结构
+// openAIChatResponse OpenAI Chat Completions API 的响应结构
 type openAIChatResponse struct {
 	ID      string `json:"id"`
 	Model   string `json:"model"`

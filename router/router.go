@@ -1,3 +1,5 @@
+// Package router 初始化 Gin 路由引擎，注册中间件和 API 路由。
+// 负责将 HTTP 请求分发到对应的 Handler 处理。
 package router
 
 import (
@@ -12,27 +14,24 @@ import (
 	"github.com/aigate/service"
 )
 
-// Setup 初始化路由
+// Setup 根据配置初始化并返回 Gin 路由引擎。
+// 执行流程：设置 Gin 模式 → 注册全局中间件 → 初始化 Provider/Service/Handler → 注册路由。
 func Setup(cfg *config.Config) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 
 	r := gin.New()
 
-	// 全局中间件
+	// 全局中间件链：异常恢复 → 请求日志 → 跨域处理
 	r.Use(middleware.Recovery())
 	r.Use(middleware.Logger())
 	r.Use(middleware.Cors())
 
-	// 初始化 providers
+	// 依赖初始化链：Config → Provider Registry → Service → Handler
 	registry := provider.InitProviders(cfg)
-
-	// 初始化 services
 	chatService := service.NewChatService(registry)
-
-	// 初始化 handlers
 	chatHandler := handler.NewChatHandler(chatService)
 
-	// 健康检查
+	// 健康检查端点，用于负载均衡器和监控探测
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -40,13 +39,11 @@ func Setup(cfg *config.Config) *gin.Engine {
 		})
 	})
 
-	// API 路由组
+	// API v1 路由组
 	api := r.Group("/api/v1")
 	{
-		// 聊天相关
-		api.POST("/chat", chatHandler.Chat)
-		// 提供者列表
-		api.GET("/providers", chatHandler.ListProviders)
+		api.POST("/chat", chatHandler.Chat)              // 聊天对话（支持普通/流式）
+		api.GET("/providers", chatHandler.ListProviders) // 获取已启用的提供者列表
 	}
 
 	return r

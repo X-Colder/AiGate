@@ -1,0 +1,125 @@
+# github.com/aigate
+go: no such tool "covdata"
+=== RUN   TestDefaultConfig
+--- PASS: TestDefaultConfig (0.00s)
+=== RUN   TestGetConfigPath_Default
+--- PASS: TestGetConfigPath_Default (0.00s)
+=== RUN   TestGetConfigPath_Env
+--- PASS: TestGetConfigPath_Env (0.00s)
+=== RUN   TestLoad_FileNotExist
+--- PASS: TestLoad_FileNotExist (0.00s)
+=== RUN   TestLoad_ValidYAML
+--- PASS: TestLoad_ValidYAML (0.00s)
+=== RUN   TestLoad_InvalidYAML
+--- PASS: TestLoad_InvalidYAML (0.00s)
+PASS
+coverage: 93.3% of statements
+ok  	github.com/aigate/config	0.329s	coverage: 93.3% of statements
+=== RUN   TestChat_Success
+--- PASS: TestChat_Success (0.00s)
+=== RUN   TestChat_InvalidJSON
+--- PASS: TestChat_InvalidJSON (0.00s)
+=== RUN   TestChat_MissingProvider
+--- PASS: TestChat_MissingProvider (0.00s)
+=== RUN   TestChat_ProviderNotFound
+[ERROR] 2026/04/14 18:49:01 logger.go:64: Chat error: get provider error: provider nonexistent not found
+--- PASS: TestChat_ProviderNotFound (0.00s)
+=== RUN   TestListProviders
+--- PASS: TestListProviders (0.00s)
+PASS
+coverage: 57.7% of statements
+ok  	github.com/aigate/handler	0.985s	coverage: 57.7% of statements
+=== RUN   TestCors_Headers
+--- PASS: TestCors_Headers (0.00s)
+=== RUN   TestCors_Options
+--- PASS: TestCors_Options (0.00s)
+=== RUN   TestLogger_Middleware
+--- PASS: TestLogger_Middleware (0.00s)
+=== RUN   TestRecovery_NoPanic
+--- PASS: TestRecovery_NoPanic (0.00s)
+=== RUN   TestRecovery_WithPanic
+[ERROR] 2026/04/14 18:49:03 logger.go:64: Panic recovered: test panic
+--- PASS: TestRecovery_WithPanic (0.00s)
+PASS
+coverage: 100.0% of statements
+ok  	github.com/aigate/middleware	2.281s	coverage: 100.0% of statements
+?   	github.com/aigate/model	[no test files]
+=== RUN   TestInit
+--- PASS: TestInit (0.00s)
+=== RUN   TestDebugf_AtDebugLevel
+--- PASS: TestDebugf_AtDebugLevel (0.00s)
+=== RUN   TestDebugf_AtInfoLevel
+--- PASS: TestDebugf_AtInfoLevel (0.00s)
+=== RUN   TestInfof
+--- PASS: TestInfof (0.00s)
+=== RUN   TestWarnf
+--- PASS: TestWarnf (0.00s)
+=== RUN   TestErrorf
+--- PASS: TestErrorf (0.00s)
+=== RUN   TestWarnf_Suppressed
+--- PASS: TestWarnf_Suppressed (0.00s)
+PASS
+coverage: 100.0% of statements
+ok  	github.com/aigate/pkg/logger	0.652s	coverage: 100.0% of statements
+=== RUN   TestSuccess
+--- PASS: TestSuccess (0.00s)
+=== RUN   TestError
+--- PASS: TestError (0.00s)
+=== RUN   TestErrorWithCode
+--- PASS: TestErrorWithCode (0.00s)
+PASS
+coverage: 100.0% of statements
+ok  	github.com/aigate/pkg/response	1.649s	coverage: 100.0% of statements
+=== RUN   TestNewRegistry
+--- PASS: TestNewRegistry (0.00s)
+=== RUN   TestRegistry_Register_And_Get
+--- PASS: TestRegistry_Register_And_Get (0.00s)
+=== RUN   TestRegistry_Get_NotFound
+--- PASS: TestRegistry_Get_NotFound (0.00s)
+=== RUN   TestRegistry_List
+--- PASS: TestRegistry_List (0.00s)
+=== RUN   TestRegistry_List_Empty
+--- PASS: TestRegistry_List_Empty (0.00s)
+=== RUN   TestInitProviders_NoneEnabled
+--- PASS: TestInitProviders_NoneEnabled (0.00s)
+=== RUN   TestInitProviders_OpenAIEnabled
+--- PASS: TestInitProviders_OpenAIEnabled (0.00s)
+=== RUN   TestInitProviders_AnthropicEnabled
+--- PASS: TestInitProviders_AnthropicEnabled (0.00s)
+=== RUN   TestOpenAIProvider_Name
+--- PASS: TestOpenAIProvider_Name (0.00s)
+=== RUN   TestAnthropicProvider_Name
+--- PASS: TestAnthropicProvider_Name (0.00s)
+PASS
+coverage: 24.4% of statements
+ok  	github.com/aigate/provider	1.305s	coverage: 24.4% of statements
+=== RUN   TestSetup
+--- PASS: TestSetup (0.00s)
+=== RUN   TestHealthEndpoint
+--- PASS: TestHealthEndpoint (0.00s)
+=== RUN   TestProvidersEndpoint
+--- PASS: TestProvidersEndpoint (0.00s)
+=== RUN   TestChatEndpoint_NoBody
+--- PASS: TestChatEndpoint_NoBody (0.00s)
+=== RUN   TestNotFoundRoute
+--- PASS: TestNotFoundRoute (0.00s)
+PASS
+coverage: 100.0% of statements
+ok  	github.com/aigate/router	1.975s	coverage: 100.0% of statements
+=== RUN   TestNewChatService
+--- PASS: TestNewChatService (0.00s)
+=== RUN   TestChat_Success
+--- PASS: TestChat_Success (0.00s)
+=== RUN   TestChat_ProviderNotFound
+--- PASS: TestChat_ProviderNotFound (0.00s)
+=== RUN   TestChat_ProviderError
+--- PASS: TestChat_ProviderError (0.00s)
+=== RUN   TestChatStream_Success
+--- PASS: TestChatStream_Success (0.00s)
+=== RUN   TestChatStream_ProviderNotFound
+--- PASS: TestChatStream_ProviderNotFound (0.00s)
+=== RUN   TestListProviders
+--- PASS: TestListProviders (0.00s)
+PASS
+coverage: 100.0% of statements
+ok  	github.com/aigate/service	0.348s	coverage: 100.0% of statements

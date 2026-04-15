@@ -1,11 +1,11 @@
 // Package router 初始化 Gin 路由引擎，注册中间件和 API 路由。
-// 负责将 HTTP 请求分发到对应的 Handler 处理。
 package router
 
 import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"github.com/aigate/config"
 	"github.com/aigate/handler"
@@ -15,8 +15,7 @@ import (
 )
 
 // Setup 根据配置初始化并返回 Gin 路由引擎。
-// 执行流程：设置 Gin 模式 → 注册全局中间件 → 初始化 Provider/Service/Handler → 注册路由。
-func Setup(cfg *config.Config) *gin.Engine {
+func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 
 	r := gin.New()
@@ -26,24 +25,73 @@ func Setup(cfg *config.Config) *gin.Engine {
 	r.Use(middleware.Logger())
 	r.Use(middleware.Cors())
 
-	// 依赖初始化链：Config → Provider Registry → Service → Handler
+	// ===== 依赖初始化 =====
+	// Provider (原有聊天转发功能)
 	registry := provider.InitProviders(cfg)
 	chatService := service.NewChatService(registry)
 	chatHandler := handler.NewChatHandler(chatService)
 
-	// 健康检查端点，用于负载均衡器和监控探测
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status":  "ok",
-			"service": "AiGate",
-		})
+	// 认证
+	authService := service.NewAuthService(db)
+	authHandler := handler.NewAuthHandler(authService)
+
+	// 网关管理
+	gatewayService := service.NewGatewayService(db)
+	gatewayHandler := handler.NewGatewayHandler(gatewayService)
+
+	// 监控指标
+	metricService := service.NewMetricService(db)
+	metricHandler := handler.NewMetricHandler(metricService)
+
+	// ===== 前端静态文件服务 =====
+	r.Static("/assets", "./frontend/dist/assets")
+	r.StaticFile("/", "./frontend/dist/index.html")
+	r.StaticFile("/favicon.ico", "./frontend/dist/favicon.ico")
+	// Vue Router history 模式兜底：非 API 路径返回 index.html
+	r.NoRoute(func(c *gin.Context) {
+		// API 路径返回 404 JSON
+		if len(c.Request.URL.Path) >= 4 && c.Request.URL.Path[:4] == "/api" {
+			c.JSON(http.StatusNotFound, gin.H{"code": -1, "message": "not found"})
+			return
+		}
+		c.File("./frontend/dist/index.html")
 	})
 
-	// API v1 路由组
+	// ===== 健康检查 =====
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "AiGate"})
+	})
+
+	// ===== API v1 路由 =====
 	api := r.Group("/api/v1")
 	{
-		api.POST("/chat", chatHandler.Chat)              // 聊天对话（支持普通/流式）
-		api.GET("/providers", chatHandler.ListProviders) // 获取已启用的提供者列表
+		// 公开接口：认证
+		auth := api.Group("/auth")
+		{
+			auth.POST("/login", authHandler.Login)
+			auth.POST("/register", authHandler.Register)
+		}
+
+		// 需要认证的接口
+		protected := api.Group("")
+		protected.Use(middleware.Auth())
+		{
+			// 聊天
+			protected.POST("/chat", chatHandler.Chat)
+			protected.GET("/providers", chatHandler.ListProviders)
+
+			// 网关管理 CRUD
+			protected.GET("/gateways", gatewayHandler.List)
+			protected.POST("/gateways", gatewayHandler.Create)
+			protected.GET("/gateways/:id", gatewayHandler.GetByID)
+			protected.PUT("/gateways/:id", gatewayHandler.Update)
+			protected.DELETE("/gateways/:id", gatewayHandler.Delete)
+			protected.PUT("/gateways/:id/policy", gatewayHandler.UpdatePolicy)
+
+			// 监控指标
+			protected.GET("/metrics/summary", metricHandler.GetSummary)
+			protected.GET("/metrics/trend", metricHandler.GetTrend)
+		}
 	}
 
 	return r

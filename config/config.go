@@ -8,11 +8,17 @@ import (
 )
 
 // Config 应用全局配置，从 config.yaml 文件加载。
-// 包含服务运行参数、日志级别和各 AI Provider 的连接配置。
 type Config struct {
 	Server    ServerConfig              `yaml:"server"`
+	Database  DatabaseConfig            `yaml:"database"`
 	LogLevel  string                    `yaml:"log_level"`
+	JWTSecret string                    `yaml:"jwt_secret"`
 	Providers map[string]ProviderConfig `yaml:"providers"`
+}
+
+// DatabaseConfig 数据库配置
+type DatabaseConfig struct {
+	Path string `yaml:"path"` // SQLite 数据库文件路径
 }
 
 // ServerConfig HTTP 服务配置
@@ -70,6 +76,9 @@ func defaultConfig() *Config {
 		Server: ServerConfig{
 			Port: "8080",
 			Mode: "debug",
+		},
+		Database: DatabaseConfig{
+			Path: "aigate.db",
 		},
 		LogLevel: "info",
 		Providers: map[string]ProviderConfig{

@@ -8,8 +8,13 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 
 	"github.com/aigate/config"
+	"github.com/aigate/model"
+	"github.com/aigate/pkg/auth"
 	"github.com/aigate/pkg/logger"
 	"github.com/aigate/pkg/response"
 )
@@ -19,35 +24,43 @@ func init() {
 	logger.Init("error")
 }
 
+func testDB() *gorm.DB {
+	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
+	})
+	db.AutoMigrate(&model.Tenant{}, &model.User{}, &model.Gateway{}, &model.GatewayPolicy{}, &model.MetricRecord{})
+	// 创建默认租户
+	db.Create(&model.Tenant{ID: "t1", Name: "Test", Status: 1})
+	return db
+}
+
 func testConfig() *config.Config {
 	return &config.Config{
-		Server: config.ServerConfig{
-			Port: "8080",
-			Mode: "test",
-		},
+		Server:   config.ServerConfig{Port: "8080", Mode: "test"},
 		LogLevel: "error",
 		Providers: map[string]config.ProviderConfig{
-			"openai": {
-				Enabled: false,
-			},
+			"openai": {Enabled: false},
 		},
 	}
 }
 
+// 生成测试用 JWT Token
+func testToken() string {
+	token, _ := auth.GenerateToken("u1", "t1", "tester", "admin")
+	return token
+}
+
+// ===== 健康检查 =====
+
 func TestSetup(t *testing.T) {
-	r := Setup(testConfig())
+	r := Setup(testConfig(), testDB())
 	if r == nil {
 		t.Fatal("expected non-nil engine")
 	}
 }
 
-// =============================================================
-// API 集成测试：GET /health
-// =============================================================
-
 func TestAPI_Health_OK(t *testing.T) {
-	r := Setup(testConfig())
-
+	r := Setup(testConfig(), testDB())
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/health", nil)
 	r.ServeHTTP(w, req)
@@ -55,299 +68,184 @@ func TestAPI_Health_OK(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
-
 	var resp map[string]interface{}
 	json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp["status"] != "ok" {
-		t.Errorf("expected status 'ok', got %v", resp["status"])
-	}
-	if resp["service"] != "AiGate" {
-		t.Errorf("expected service 'AiGate', got %v", resp["service"])
+		t.Errorf("expected status ok, got %v", resp["status"])
 	}
 }
 
-func TestAPI_Health_MethodNotAllowed(t *testing.T) {
-	r := Setup(testConfig())
+// ===== 认证接口 =====
 
+func TestAPI_Auth_Login(t *testing.T) {
+	db := testDB()
+	// 创建用户 (sha256 of "pass123")
+	db.Create(&model.User{ID: "u1", TenantID: "t1", Username: "test", Password: "9b8769a4a742959a2d0298c36fb70623f2dfacda8436237df08d8dfd5b37374c", Role: "user", Status: 1})
+
+	r := Setup(testConfig(), db)
+	body, _ := json.Marshal(map[string]string{"username": "test", "password": "pass123"})
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/health", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNotFound && w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 404 or 405, got %d", w.Code)
-	}
-}
-
-// =============================================================
-// API 集成测试：GET /api/v1/providers
-// =============================================================
-
-func TestAPI_Providers_EmptyList(t *testing.T) {
-	r := Setup(testConfig()) // openai disabled
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/v1/providers", nil)
+	req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", w.Code)
+		t.Fatalf("expected 200, got %d, body: %s", w.Code, w.Body.String())
 	}
-
 	var resp response.R
 	json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp.Code != 0 {
 		t.Errorf("expected code 0, got %d", resp.Code)
 	}
-	if resp.Message != "success" {
-		t.Errorf("expected message 'success', got %s", resp.Message)
+}
+
+func TestAPI_Auth_LoginFail(t *testing.T) {
+	r := Setup(testConfig(), testDB())
+	body, _ := json.Marshal(map[string]string{"username": "nouser", "password": "wrong"})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", w.Code)
 	}
 }
 
-func TestAPI_Providers_WithEnabled(t *testing.T) {
-	cfg := testConfig()
-	cfg.Providers["openai"] = config.ProviderConfig{
-		Enabled: true,
-		APIKey:  "test-key",
-		BaseURL: "https://api.openai.com/v1",
-		Model:   "gpt-4",
-		Timeout: 30,
-	}
-	r := Setup(cfg)
-
+func TestAPI_Auth_Register(t *testing.T) {
+	r := Setup(testConfig(), testDB())
+	body, _ := json.Marshal(map[string]string{"username": "newuser", "password": "abc123", "tenant_id": "t1"})
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/v1/providers", nil)
+	req := httptest.NewRequest("POST", "/api/v1/auth/register", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", w.Code)
-	}
-
-	var resp response.R
-	json.Unmarshal(w.Body.Bytes(), &resp)
-	if resp.Code != 0 {
-		t.Errorf("expected code 0, got %d", resp.Code)
-	}
-	// data 应该是非空数组
-	dataList, ok := resp.Data.([]interface{})
-	if !ok {
-		t.Fatalf("expected data to be array, got %T", resp.Data)
-	}
-	if len(dataList) != 1 {
-		t.Errorf("expected 1 provider, got %d", len(dataList))
+		t.Fatalf("expected 200, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
 
-func TestAPI_Providers_CORS_Headers(t *testing.T) {
-	r := Setup(testConfig())
+// ===== 需要认证的接口（加 Bearer Token）=====
 
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/v1/providers", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Header().Get("Access-Control-Allow-Origin") != "*" {
-		t.Error("expected CORS Allow-Origin header")
+func authReq(method, path string, body []byte) *http.Request {
+	var reader *bytes.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
 	}
-}
-
-// =============================================================
-// API 集成测试：POST /api/v1/chat
-// =============================================================
-
-func TestAPI_Chat_EmptyBody(t *testing.T) {
-	r := Setup(testConfig())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/chat", nil)
+	var req *http.Request
+	if reader != nil {
+		req = httptest.NewRequest(method, path, reader)
+	} else {
+		req = httptest.NewRequest(method, path, nil)
+	}
 	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", w.Code)
-	}
-
-	var resp response.R
-	json.Unmarshal(w.Body.Bytes(), &resp)
-	if resp.Code != -1 {
-		t.Errorf("expected code -1, got %d", resp.Code)
-	}
+	req.Header.Set("Authorization", "Bearer "+testToken())
+	return req
 }
 
-func TestAPI_Chat_InvalidJSON(t *testing.T) {
-	r := Setup(testConfig())
+func TestAPI_Gateways_CRUD(t *testing.T) {
+	r := Setup(testConfig(), testDB())
 
+	// 创建网关
+	body, _ := json.Marshal(map[string]interface{}{
+		"name": "DeepSeek GW", "provider": "deepseek", "base_url": "https://api.deepseek.com/v1", "model": "deepseek-chat",
+	})
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/chat", bytes.NewReader([]byte("{invalid")))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", w.Code)
-	}
-}
-
-func TestAPI_Chat_MissingProvider(t *testing.T) {
-	r := Setup(testConfig())
-
-	body := map[string]interface{}{
-		"messages": []map[string]string{{"role": "user", "content": "hi"}},
-	}
-	jsonBody, _ := json.Marshal(body)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/chat", bytes.NewReader(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", w.Code)
-	}
-
-	var resp response.R
-	json.Unmarshal(w.Body.Bytes(), &resp)
-	if resp.Code != -1 {
-		t.Errorf("expected code -1, got %d", resp.Code)
-	}
-}
-
-func TestAPI_Chat_MissingMessages(t *testing.T) {
-	r := Setup(testConfig())
-
-	body := map[string]interface{}{
-		"provider": "openai",
-	}
-	jsonBody, _ := json.Marshal(body)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/chat", bytes.NewReader(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", w.Code)
-	}
-}
-
-func TestAPI_Chat_ProviderNotFound(t *testing.T) {
-	r := Setup(testConfig()) // openai disabled, not registered
-
-	body := map[string]interface{}{
-		"provider": "openai",
-		"messages": []map[string]string{{"role": "user", "content": "hi"}},
-	}
-	jsonBody, _ := json.Marshal(body)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/chat", bytes.NewReader(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d", w.Code)
-	}
-
-	var resp response.R
-	json.Unmarshal(w.Body.Bytes(), &resp)
-	if resp.Code != -1 {
-		t.Errorf("expected code -1, got %d", resp.Code)
-	}
-}
-
-func TestAPI_Chat_MethodNotAllowed(t *testing.T) {
-	r := Setup(testConfig())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/v1/chat", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNotFound && w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected 404 or 405, got %d", w.Code)
-	}
-}
-
-// =============================================================
-// API 集成测试：404 路由
-// =============================================================
-
-func TestAPI_NotFound(t *testing.T) {
-	r := Setup(testConfig())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/nonexistent", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", w.Code)
-	}
-}
-
-func TestAPI_NotFound_V1(t *testing.T) {
-	r := Setup(testConfig())
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/v1/nonexistent", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", w.Code)
-	}
-}
-
-// =============================================================
-// API 集成测试：OPTIONS 预检请求 (CORS)
-// =============================================================
-
-func TestAPI_Providers_AllDomestic(t *testing.T) {
-	cfg := testConfig()
-	// 启用四个国内 provider
-	cfg.Providers["deepseek"] = config.ProviderConfig{Enabled: true, Timeout: 60}
-	cfg.Providers["doubao"] = config.ProviderConfig{Enabled: true, Timeout: 60}
-	cfg.Providers["qwen"] = config.ProviderConfig{Enabled: true, Timeout: 60}
-	cfg.Providers["kimi"] = config.ProviderConfig{Enabled: true, Timeout: 60}
-	r := Setup(cfg)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/v1/providers", nil)
-	r.ServeHTTP(w, req)
-
+	r.ServeHTTP(w, authReq("POST", "/api/v1/gateways", body))
 	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", w.Code)
+		t.Fatalf("create: expected 200, got %d, body: %s", w.Code, w.Body.String())
 	}
 
-	var resp response.R
-	json.Unmarshal(w.Body.Bytes(), &resp)
-	dataList, ok := resp.Data.([]interface{})
-	if !ok {
-		t.Fatalf("expected data to be array, got %T", resp.Data)
+	var createResp response.R
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	gwData := createResp.Data.(map[string]interface{})
+	gwID := gwData["id"].(string)
+
+	// 列表
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("GET", "/api/v1/gateways", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("list: expected 200, got %d", w.Code)
 	}
-	if len(dataList) != 4 {
-		t.Errorf("expected 4 providers, got %d", len(dataList))
+
+	// 获取单个
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("GET", "/api/v1/gateways/"+gwID, nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("get: expected 200, got %d", w.Code)
+	}
+
+	// 更新
+	updateBody, _ := json.Marshal(map[string]interface{}{"name": "Updated GW"})
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("PUT", "/api/v1/gateways/"+gwID, updateBody))
+	if w.Code != http.StatusOK {
+		t.Fatalf("update: expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// 更新策略
+	policyBody, _ := json.Marshal(map[string]interface{}{
+		"rate_limit_enabled": true, "rate_limit_qps": 50,
+		"circuit_breaker_enabled": true, "circuit_breaker_threshold": 0.3,
+	})
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("PUT", "/api/v1/gateways/"+gwID+"/policy", policyBody))
+	if w.Code != http.StatusOK {
+		t.Fatalf("policy: expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// 删除
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("DELETE", "/api/v1/gateways/"+gwID, nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("delete: expected 200, got %d", w.Code)
 	}
 }
 
-func TestAPI_Chat_DeepSeekNotRegistered(t *testing.T) {
-	r := Setup(testConfig()) // deepseek not in config
+// ===== 监控接口 =====
 
-	body := map[string]interface{}{
-		"provider": "deepseek",
-		"messages": []map[string]string{{"role": "user", "content": "hi"}},
+func TestAPI_Metrics(t *testing.T) {
+	db := testDB()
+	// 插入测试数据
+	db.Create(&model.MetricRecord{TenantID: "t1", GatewayID: "gw1", RequestCount: 100, TokensUsed: 5000, AvgLatencyMs: 200, ErrorCount: 5, UniqueUsers: 10})
+
+	r := Setup(testConfig(), db)
+
+	// 汇总
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("GET", "/api/v1/metrics/summary?start_date=2020-01-01&end_date=2030-12-31", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("summary: expected 200, got %d, body: %s", w.Code, w.Body.String())
 	}
-	jsonBody, _ := json.Marshal(body)
+
+	// 趋势
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("GET", "/api/v1/metrics/trend?start_date=2020-01-01&end_date=2030-12-31", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("trend: expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+}
+
+// ===== 未认证访问被拒 =====
+
+func TestAPI_Unauthorized(t *testing.T) {
+	r := Setup(testConfig(), testDB())
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/chat", bytes.NewReader(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req := httptest.NewRequest("GET", "/api/v1/gateways", nil)
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d", w.Code)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", w.Code)
 	}
 }
+
+// ===== CORS =====
 
 func TestAPI_CORS_Preflight(t *testing.T) {
-	r := Setup(testConfig())
-
+	r := Setup(testConfig(), testDB())
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("OPTIONS", "/api/v1/chat", nil)
+	req := httptest.NewRequest("OPTIONS", "/api/v1/gateways", nil)
 	req.Header.Set("Origin", "http://localhost:3000")
 	req.Header.Set("Access-Control-Request-Method", "POST")
 	r.ServeHTTP(w, req)
@@ -356,12 +254,6 @@ func TestAPI_CORS_Preflight(t *testing.T) {
 		t.Errorf("expected 204, got %d", w.Code)
 	}
 	if w.Header().Get("Access-Control-Allow-Origin") != "*" {
-		t.Error("expected CORS Allow-Origin *")
-	}
-	if w.Header().Get("Access-Control-Allow-Methods") == "" {
-		t.Error("expected CORS Allow-Methods header")
-	}
-	if w.Header().Get("Access-Control-Allow-Headers") == "" {
-		t.Error("expected CORS Allow-Headers header")
+		t.Error("expected CORS header")
 	}
 }

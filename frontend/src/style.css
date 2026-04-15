@@ -1,0 +1,34 @@
+:root {
+  --primary-color: #409eff;
+  --primary-light: #ecf5ff;
+  --bg-color: #f0f5ff;
+  --sidebar-bg: #1d3a5f;
+  --sidebar-text: #ffffff;
+  --header-bg: #ffffff;
+  --card-bg: #ffffff;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background-color: var(--bg-color);
+  color: #303133;
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
+}
+
+.el-menu { border-right: none !important; }
+
+.page-container {
+  padding: 20px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

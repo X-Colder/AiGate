@@ -2,13 +2,12 @@
 
 > Base URL: `http://localhost:8080`  
 > API 版本: v1  
-> Content-Type: `application/json`
+> Content-Type: `application/json`  
+> 认证方式: Bearer Token (JWT)
 
 ---
 
 ## 统一响应格式
-
-所有接口均采用统一的 JSON 响应结构：
 
 ```json
 {
@@ -20,253 +19,378 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| code | int | 业务状态码，`0` 表示成功，`-1` 表示通用错误 |
+| code | int | `0` 成功，`-1` 错误 |
 | message | string | 状态描述 |
-| data | object | 响应数据，错误时可能为空 |
+| data | object | 响应数据 |
 
 ---
 
-## 接口列表
+## 一、认证接口（公开）
 
-### 1. 健康检查
-
-检查服务是否正常运行。
-
-**请求**
+### 1.1 用户登录
 
 ```
-GET /health
-```
-
-**响应示例**
-
-```json
-HTTP/1.1 200 OK
-
-{
-  "status": "ok",
-  "service": "AiGate"
-}
-```
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| status | string | 服务状态，`ok` 表示正常 |
-| service | string | 服务名称 |
-
----
-
-### 2. 获取提供者列表
-
-获取所有已启用的 AI 服务提供者。
-
-**请求**
-
-```
-GET /api/v1/providers
-```
-
-**响应示例**
-
-```json
-HTTP/1.1 200 OK
-
-{
-  "code": 0,
-  "message": "success",
-  "data": [
-    {
-      "name": "openai",
-      "enabled": true
-    },
-    {
-      "name": "anthropic",
-      "enabled": true
-    },
-    {
-      "name": "deepseek",
-      "enabled": true
-    },
-    {
-      "name": "doubao",
-      "enabled": true
-    },
-    {
-      "name": "qwen",
-      "enabled": true
-    },
-    {
-      "name": "kimi",
-      "enabled": true
-    }
-  ]
-}
-```
-
-**响应字段 - data 数组元素**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| name | string | 提供者名称 |
-| enabled | bool | 是否启用 |
-| models | string[] | 可用模型列表（可选） |
-
----
-
-### 3. 聊天对话
-
-向指定的 AI 提供者发送聊天请求。
-
-**请求**
-
-```
-POST /api/v1/chat
-Content-Type: application/json
+POST /api/v1/auth/login
 ```
 
 **请求体**
 
 ```json
 {
-  "provider": "openai",
-  "model": "gpt-4",
-  "messages": [
+  "username": "admin",
+  "password": "admin123"
+}
+```
+
+**响应**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "user_id": "uuid",
+    "username": "admin",
+    "tenant_id": "uuid",
+    "role": "admin"
+  }
+}
+```
+
+### 1.2 用户注册
+
+```
+POST /api/v1/auth/register
+```
+
+**请求体**
+
+```json
+{
+  "username": "newuser",
+  "password": "abc123",
+  "tenant_id": "00000000-0000-0000-0000-000000000001"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| username | string | 是 | 3-50 字符 |
+| password | string | 是 | 6-50 字符 |
+| tenant_id | string | 是 | 归属租户 ID |
+
+---
+
+## 二、网关管理接口（需认证）
+
+所有网关接口需要在请求头添加：`Authorization: Bearer <token>`
+
+### 2.1 获取网关列表
+
+```
+GET /api/v1/gateways
+```
+
+**响应**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": [
     {
-      "role": "system",
-      "content": "You are a helpful assistant."
-    },
-    {
-      "role": "user",
-      "content": "Hello!"
+      "id": "uuid",
+      "tenant_id": "uuid",
+      "name": "DeepSeek 网关",
+      "provider": "deepseek",
+      "base_url": "https://api.deepseek.com/v1",
+      "model": "deepseek-chat",
+      "timeout": 60,
+      "status": 1,
+      "policy": {
+        "id": "uuid",
+        "gateway_id": "uuid",
+        "rate_limit_enabled": true,
+        "rate_limit_qps": 100,
+        "rate_limit_burst": 200,
+        "circuit_breaker_enabled": false,
+        "circuit_breaker_threshold": 0.5,
+        "circuit_breaker_timeout": 30,
+        "circuit_breaker_min_reqs": 10,
+        "fallback_enabled": false,
+        "fallback_provider": "",
+        "fallback_model": ""
+      },
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
     }
+  ]
+}
+```
+
+### 2.2 创建网关
+
+```
+POST /api/v1/gateways
+```
+
+**请求体**
+
+```json
+{
+  "name": "DeepSeek 网关",
+  "provider": "deepseek",
+  "base_url": "https://api.deepseek.com/v1",
+  "api_key": "sk-xxx",
+  "model": "deepseek-chat",
+  "timeout": 60
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| name | string | 是 | 网关名称 |
+| provider | string | 是 | AI 服务标识 |
+| base_url | string | 否 | API 基础地址 |
+| api_key | string | 否 | API 密钥 |
+| model | string | 否 | 默认模型 |
+| timeout | int | 否 | 超时（秒），默认 60 |
+
+### 2.3 获取单个网关
+
+```
+GET /api/v1/gateways/:id
+```
+
+### 2.4 更新网关
+
+```
+PUT /api/v1/gateways/:id
+```
+
+**请求体**（所有字段可选）
+
+```json
+{
+  "name": "新名称",
+  "provider": "qwen",
+  "status": 0
+}
+```
+
+### 2.5 删除网关
+
+```
+DELETE /api/v1/gateways/:id
+```
+
+**响应**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": { "message": "gateway deleted" }
+}
+```
+
+### 2.6 更新网关策略
+
+```
+PUT /api/v1/gateways/:id/policy
+```
+
+**请求体**（所有字段可选）
+
+```json
+{
+  "rate_limit_enabled": true,
+  "rate_limit_qps": 50,
+  "rate_limit_burst": 100,
+  "circuit_breaker_enabled": true,
+  "circuit_breaker_threshold": 0.3,
+  "circuit_breaker_timeout": 30,
+  "circuit_breaker_min_reqs": 10,
+  "fallback_enabled": true,
+  "fallback_provider": "qwen",
+  "fallback_model": "qwen-turbo"
+}
+```
+
+**策略字段说明**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| rate_limit_enabled | bool | 启用限流 |
+| rate_limit_qps | int | 每秒最大请求数 |
+| rate_limit_burst | int | 突发最大请求数 |
+| circuit_breaker_enabled | bool | 启用熔断 |
+| circuit_breaker_threshold | float | 错误率阈值 (0-1) |
+| circuit_breaker_timeout | int | 熔断恢复时间（秒） |
+| circuit_breaker_min_reqs | int | 触发熔断最小请求数 |
+| fallback_enabled | bool | 启用降级 |
+| fallback_provider | string | 降级备用服务 |
+| fallback_model | string | 降级使用模型 |
+
+---
+
+## 三、监控接口（需认证）
+
+### 3.1 获取监控汇总
+
+```
+GET /api/v1/metrics/summary?start_date=2026-04-01&end_date=2026-04-15&gateway_id=xxx
+```
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| start_date | string | 是 | 开始日期 YYYY-MM-DD |
+| end_date | string | 是 | 结束日期 YYYY-MM-DD |
+| gateway_id | string | 否 | 指定网关，不填则查全部 |
+
+**响应**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "total_requests": 10000,
+    "total_tokens": 500000,
+    "avg_latency_ms": 150.5,
+    "total_errors": 50,
+    "unique_users": 120,
+    "error_rate": 0.005
+  }
+}
+```
+
+### 3.2 获取监控趋势（按日聚合）
+
+```
+GET /api/v1/metrics/trend?start_date=2026-04-01&end_date=2026-04-15&gateway_id=xxx
+```
+
+**响应**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "date": "2026-04-01",
+      "requests": 1500,
+      "tokens": 75000,
+      "avg_latency": 140.2,
+      "errors": 5,
+      "users": 30
+    }
+  ]
+}
+```
+
+---
+
+## 四、聊天接口（需认证）
+
+### 4.1 聊天对话
+
+```
+POST /api/v1/chat
+```
+
+**请求体**
+
+```json
+{
+  "provider": "deepseek",
+  "model": "deepseek-chat",
+  "messages": [
+    { "role": "user", "content": "Hello!" }
   ],
   "stream": false
 }
 ```
 
-**请求字段**
-
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| provider | string | 是 | AI 提供者名称（`openai`、`anthropic`、`deepseek`、`doubao`、`qwen`、`kimi`） |
-| model | string | 否 | 模型名称，不填则使用配置中的默认模型 |
+| provider | string | 是 | `openai`/`anthropic`/`deepseek`/`doubao`/`qwen`/`kimi` |
+| model | string | 否 | 模型名称 |
 | messages | Message[] | 是 | 消息列表 |
-| stream | bool | 否 | 是否使用流式响应，默认 `false` |
+| stream | bool | 否 | 流式响应 |
 
-**Message 结构**
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| role | string | 是 | 角色：`system`、`user`、`assistant` |
-| content | string | 是 | 消息内容 |
-
-#### 3.1 普通响应（stream=false）
-
-**响应示例**
-
-```json
-HTTP/1.1 200 OK
-
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "id": "chatcmpl-abc123",
-    "provider": "openai",
-    "model": "gpt-4",
-    "content": "Hello! How can I help you today?",
-    "usage": {
-      "prompt_tokens": 20,
-      "completion_tokens": 10,
-      "total_tokens": 30
-    }
-  }
-}
-```
-
-**响应字段 - data**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | string | 响应唯一标识 |
-| provider | string | 提供者名称 |
-| model | string | 实际使用的模型 |
-| content | string | AI 回复内容 |
-| usage | Usage | Token 用量统计 |
-
-**Usage 结构**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| prompt_tokens | int | 提示词消耗 Token 数 |
-| completion_tokens | int | 生成内容消耗 Token 数 |
-| total_tokens | int | 总消耗 Token 数 |
-
-#### 3.2 流式响应（stream=true）
-
-响应格式为 Server-Sent Events (SSE)。
-
-**响应 Headers**
+### 4.2 获取提供者列表
 
 ```
-Content-Type: text/event-stream
-Cache-Control: no-cache
-Connection: keep-alive
+GET /api/v1/providers
 ```
-
-**事件格式**
-
-```
-event: message
-data: {"id":"chunk-1","provider":"openai","model":"gpt-4","delta":"Hello","done":false}
-
-event: message
-data: {"id":"chunk-2","provider":"openai","model":"gpt-4","delta":" World","done":true}
-```
-
-**StreamChunk 结构**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | string | 块唯一标识 |
-| provider | string | 提供者名称 |
-| model | string | 模型名称 |
-| delta | string | 本次增量内容 |
-| done | bool | 是否为最后一个块 |
 
 ---
 
-## 错误响应
+## 五、公开接口
 
-### 400 Bad Request - 请求参数错误
+### 5.1 健康检查
 
-```json
-{
-  "code": -1,
-  "message": "Invalid request: Key: 'ChatRequest.Provider' Error:Field validation for 'Provider' failed on the 'required' tag"
-}
+```
+GET /health
 ```
 
-### 500 Internal Server Error - 服务端错误
+**响应**
 
 ```json
 {
-  "code": -1,
-  "message": "Chat error: get provider error: provider xxx not found"
+  "status": "ok",
+  "service": "AiGate"
 }
 ```
 
 ---
 
-## 支持的提供者
+## 六、支持的 AI 服务
 
-| 提供者 | 标识 | API 地址 | 默认模型 | 说明 |
-|--------|------|----------|----------|------|
-| OpenAI | `openai` | api.openai.com | gpt-3.5-turbo | 支持 GPT 系列模型 |
-| Anthropic | `anthropic` | api.anthropic.com | claude-3-sonnet-20240229 | 支持 Claude 系列模型 |
-| DeepSeek | `deepseek` | api.deepseek.com/v1 | deepseek-chat | 兼容 OpenAI 协议，支持 DeepSeek 系列模型 |
-| 豆包 | `doubao` | ark.cn-beijing.volces.com/api/v3 | doubao-pro-4k | 字节跳动豆包大模型，兼容 OpenAI 协议 |
-| 通义千问 | `qwen` | dashscope.aliyuncs.com/compatible-mode/v1 | qwen-turbo | 阿里通义千问，兼容 OpenAI 协议 |
-| Kimi | `kimi` | api.moonshot.cn/v1 | moonshot-v1-8k | Moonshot Kimi 大模型，兼容 OpenAI 协议 |
+| 提供者 | 标识 | API 地址 | 默认模型 |
+|--------|------|----------|----------|
+| OpenAI | `openai` | api.openai.com/v1 | gpt-3.5-turbo |
+| Anthropic | `anthropic` | api.anthropic.com/v1 | claude-3-sonnet-20240229 |
+| DeepSeek | `deepseek` | api.deepseek.com/v1 | deepseek-chat |
+| 豆包 | `doubao` | ark.cn-beijing.volces.com/api/v3 | doubao-pro-32k |
+| 通义千问 | `qwen` | dashscope.aliyuncs.com/compatible-mode/v1 | qwen-turbo |
+| Kimi | `kimi` | api.moonshot.cn/v1 | moonshot-v1-8k |
 
-> **注意**：国内四个 AI 服务（DeepSeek、豆包、Qwen、Kimi）均兼容 OpenAI Chat Completions 接口协议，使用统一的 `OpenAICompatibleProvider` 基类实现。
+---
+
+## 七、错误响应
+
+### 400 Bad Request
+
+```json
+{ "code": -1, "message": "Invalid request: ..." }
+```
+
+### 401 Unauthorized
+
+```json
+{ "code": -1, "message": "missing authorization header" }
+```
+
+### 404 Not Found
+
+```json
+{ "code": -1, "message": "not found" }
+```
+
+### 500 Internal Server Error
+
+```json
+{ "code": -1, "message": "..." }
+```
+
+---
+
+## 八、默认账户
+
+| 用户名 | 密码 | 角色 | 租户 |
+|--------|------|------|------|
+| admin | admin123 | admin | Default |

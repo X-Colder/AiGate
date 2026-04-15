@@ -6,6 +6,9 @@
 *.dylib
 aigate
 
+# Database
+*.db
+
 # Config with secrets
 config.yaml
 
@@ -13,3 +16,7 @@ config.yaml
 .idea/
 .vscode/
 *.swp
+
+# Node
+frontend/node_modules/
+frontend/dist/

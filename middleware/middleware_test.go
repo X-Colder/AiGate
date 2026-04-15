@@ -103,3 +103,61 @@ func TestRecovery_WithPanic(t *testing.T) {
 		t.Errorf("expected 500, got %d", w.Code)
 	}
 }
+
+// ===== AdminOnly 中间件 =====
+
+func TestAdminOnly_AllowAdmin(t *testing.T) {
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("role", "admin")
+		c.Next()
+	})
+	r.Use(AdminOnly())
+	r.GET("/admin", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/admin", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for admin, got %d", w.Code)
+	}
+}
+
+func TestAdminOnly_DenyUser(t *testing.T) {
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("role", "user")
+		c.Next()
+	})
+	r.Use(AdminOnly())
+	r.GET("/admin", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/admin", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for user, got %d", w.Code)
+	}
+}
+
+func TestAdminOnly_DenyNoRole(t *testing.T) {
+	r := gin.New()
+	r.Use(AdminOnly())
+	r.GET("/admin", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/admin", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for no role, got %d", w.Code)
+	}
+}

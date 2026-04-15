@@ -11,8 +11,8 @@
 
 | 指标 | 值 |
 |------|------|
-| 总测试数 | 48 |
-| 通过 | 48 |
+| 总测试数 | 56 |
+| 通过 | 56 |
 | 失败 | 0 |
 | 跳过 | 0 |
 
@@ -102,6 +102,11 @@
 | TestLogger_Middleware | 请求日志 | PASS |
 | TestRecovery_NoPanic | 正常请求 | PASS |
 | TestRecovery_WithPanic | Panic 恢复 | PASS |
+| TestAdminOnly_AllowAdmin | admin 角色通过 | PASS |
+| TestAdminOnly_DenyUser | user 角色拒绝 | PASS |
+| TestAdminOnly_DenyNoRole | 无角色拒绝 | PASS |
+
+- 覆盖率：**58.8%**
 
 ### 7. handler（处理器层）
 
@@ -145,6 +150,14 @@
 |----------|------|------|------|
 | TestAPI_Unauthorized | 无 Token 访问 | 401 | PASS |
 | TestAPI_CORS_Preflight | OPTIONS 预检 | 204, CORS 头 | PASS |
+
+### 租户管理（管理员）
+
+| 测试用例 | 场景 | 预期 | 结果 |
+|----------|------|------|------|
+| TestAPI_Admin_Tenants_CRUD | 创建→列表→获取→更新→详情→删除 | 全流程 200 | PASS |
+| TestAPI_Admin_ForbiddenForUser | 普通用户访问管理接口 | 403 | PASS |
+| TestAPI_Admin_Tenant_DuplicateName | 创建重名租户 | 400 | PASS |
 
 ### 健康检查
 

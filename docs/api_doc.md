@@ -1,6 +1,6 @@
 # AiGate API 文档
 
-> Base URL: `http://localhost:8080`  
+> Base URL: `http://localhost:8081`  
 > API 版本: v1  
 > Content-Type: `application/json`  
 > 认证方式: Bearer Token (JWT)
@@ -329,9 +329,136 @@ GET /api/v1/providers
 
 ---
 
-## 五、公开接口
+## 五、租户管理接口（管理员专用）
 
-### 5.1 健康检查
+所有租户管理接口需 admin 角色 Token：`Authorization: Bearer <admin_token>`
+
+### 5.1 获取租户列表
+
+```
+GET /api/v1/admin/tenants
+```
+
+**响应**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Default",
+      "status": 1,
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z",
+      "user_count": 5,
+      "gateway_count": 3
+    }
+  ]
+}
+```
+
+### 5.2 创建租户
+
+```
+POST /api/v1/admin/tenants
+```
+
+**请求体**
+
+```json
+{
+  "name": "新租户"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| name | string | 是 | 2-100 字符，不可重名 |
+
+### 5.3 获取单个租户
+
+```
+GET /api/v1/admin/tenants/:id
+```
+
+### 5.4 更新租户
+
+```
+PUT /api/v1/admin/tenants/:id
+```
+
+**请求体**（字段可选）
+
+```json
+{
+  "name": "新名称",
+  "status": 0
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| name | string | 否 | 租户名称 |
+| status | int | 否 | 1=启用 0=禁用 |
+
+### 5.5 删除租户
+
+```
+DELETE /api/v1/admin/tenants/:id
+```
+
+**响应**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": { "message": "tenant deleted" }
+}
+```
+
+> 删除租户会级联删除其下所有用户、网关、策略和监控数据。
+
+### 5.6 获取租户使用详情
+
+```
+GET /api/v1/admin/tenants/:id/usage
+```
+
+**响应**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "tenant_id": "uuid",
+    "tenant_name": "Default",
+    "gateways": [
+      {
+        "gateway_id": "uuid",
+        "gateway_name": "DeepSeek 网关",
+        "provider": "deepseek",
+        "status": 1,
+        "tokens_used": 50000,
+        "request_count": 1200,
+        "avg_latency_ms": 150.5,
+        "error_rate": 0.005
+      }
+    ],
+    "total_tokens": 50000,
+    "total_requests": 1200
+  }
+}
+```
+
+---
+
+## 六、公开接口
+
+### 6.1 健康检查
 
 ```
 GET /health
@@ -348,7 +475,7 @@ GET /health
 
 ---
 
-## 六、支持的 AI 服务
+## 七、支持的 AI 服务
 
 | 提供者 | 标识 | API 地址 | 默认模型 |
 |--------|------|----------|----------|
@@ -361,7 +488,7 @@ GET /health
 
 ---
 
-## 七、错误响应
+## 八、错误响应
 
 ### 400 Bad Request
 
@@ -373,6 +500,12 @@ GET /health
 
 ```json
 { "code": -1, "message": "missing authorization header" }
+```
+
+### 403 Forbidden
+
+```json
+{ "code": -1, "message": "admin access required" }
 ```
 
 ### 404 Not Found
@@ -389,7 +522,7 @@ GET /health
 
 ---
 
-## 八、默认账户
+## 九、默认账户
 
 | 用户名 | 密码 | 角色 | 租户 |
 |--------|------|------|------|

@@ -7,6 +7,12 @@
             </div>
             <el-menu :default-active="$route.path" router background-color="#1d3a5f" text-color="#ffffffcc"
                 active-text-color="#409eff">
+                <el-menu-item index="/tenants" v-if="isAdmin">
+                    <el-icon>
+                        <OfficeBuilding />
+                    </el-icon>
+                    <span>租户管理</span>
+                </el-menu-item>
                 <el-menu-item index="/gateways">
                     <el-icon>
                         <Connection />
@@ -60,6 +66,7 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const username = computed(() => localStorage.getItem('username') || 'User')
+const isAdmin = computed(() => localStorage.getItem('role') === 'admin')
 
 const handleLogout = () => {
     localStorage.clear()

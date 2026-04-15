@@ -24,6 +24,47 @@ type LoginResponse struct {
 	Role     string `json:"role"`
 }
 
+// ============ 租户管理 DTO ============
+
+// CreateTenantRequest 创建租户请求
+type CreateTenantRequest struct {
+	Name string `json:"name" binding:"required,min=2,max=100"`
+}
+
+// UpdateTenantRequest 更新租户请求
+type UpdateTenantRequest struct {
+	Name   string `json:"name"`
+	Status *int   `json:"status"`
+}
+
+// TenantDetail 租户详情（含统计数据，管理员视图）
+type TenantDetail struct {
+	Tenant
+	UserCount    int64 `json:"user_count"`
+	GatewayCount int64 `json:"gateway_count"`
+}
+
+// TenantUsage 租户使用详情
+type TenantUsage struct {
+	TenantID    string         `json:"tenant_id"`
+	TenantName  string         `json:"tenant_name"`
+	Gateways    []GatewayUsage `json:"gateways"`
+	TotalTokens int64          `json:"total_tokens"`
+	TotalReqs   int64          `json:"total_requests"`
+}
+
+// GatewayUsage 单个网关使用数据
+type GatewayUsage struct {
+	GatewayID    string  `json:"gateway_id"`
+	GatewayName  string  `json:"gateway_name"`
+	Provider     string  `json:"provider"`
+	Status       int     `json:"status"`
+	TokensUsed   int64   `json:"tokens_used"`
+	RequestCount int64   `json:"request_count"`
+	AvgLatencyMs float64 `json:"avg_latency_ms"`
+	ErrorRate    float64 `json:"error_rate"`
+}
+
 // ============ 网关相关 DTO ============
 
 // CreateGatewayRequest 创建网关请求

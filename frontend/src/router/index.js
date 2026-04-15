@@ -13,6 +13,12 @@ const routes = [
         redirect: '/gateways',
         children: [
             {
+                path: 'tenants',
+                name: 'Tenants',
+                component: () => import('../views/Tenants.vue'),
+                meta: { requiresAdmin: true }
+            },
+            {
                 path: 'gateways',
                 name: 'Gateways',
                 component: () => import('../views/Gateways.vue')
@@ -31,11 +37,13 @@ const router = createRouter({
     routes
 })
 
-// 路由守卫：未登录跳转到登录页
+// 路由守卫：未登录跳转到登录页，非管理员禁止访问管理页
 router.beforeEach((to, from, next) => {
     const token = localStorage.getItem('token')
     if (to.path !== '/login' && !token) {
         next('/login')
+    } else if (to.meta.requiresAdmin && localStorage.getItem('role') !== 'admin') {
+        next('/gateways')
     } else {
         next()
     }

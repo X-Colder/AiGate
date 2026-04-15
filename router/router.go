@@ -43,6 +43,10 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 	metricService := service.NewMetricService(db)
 	metricHandler := handler.NewMetricHandler(metricService)
 
+	// 租户管理（仅管理员）
+	tenantService := service.NewTenantService(db)
+	tenantHandler := handler.NewTenantHandler(tenantService)
+
 	// ===== 前端静态文件服务 =====
 	r.Static("/assets", "./frontend/dist/assets")
 	r.StaticFile("/", "./frontend/dist/index.html")
@@ -91,6 +95,18 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 			// 监控指标
 			protected.GET("/metrics/summary", metricHandler.GetSummary)
 			protected.GET("/metrics/trend", metricHandler.GetTrend)
+		}
+
+		// 管理员专用接口（需认证 + admin 角色）
+		admin := api.Group("/admin")
+		admin.Use(middleware.Auth(), middleware.AdminOnly())
+		{
+			admin.GET("/tenants", tenantHandler.List)
+			admin.POST("/tenants", tenantHandler.Create)
+			admin.GET("/tenants/:id", tenantHandler.GetByID)
+			admin.PUT("/tenants/:id", tenantHandler.Update)
+			admin.DELETE("/tenants/:id", tenantHandler.Delete)
+			admin.GET("/tenants/:id/usage", tenantHandler.GetUsage)
 		}
 	}
 

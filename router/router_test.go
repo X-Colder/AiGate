@@ -257,3 +257,90 @@ func TestAPI_CORS_Preflight(t *testing.T) {
 		t.Error("expected CORS header")
 	}
 }
+
+// ===== 管理员租户管理 =====
+
+func TestAPI_Admin_Tenants_CRUD(t *testing.T) {
+	r := Setup(testConfig(), testDB())
+
+	// 创建租户
+	body, _ := json.Marshal(map[string]string{"name": "NewTenant"})
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("POST", "/api/v1/admin/tenants", body))
+	if w.Code != http.StatusOK {
+		t.Fatalf("create: expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	var createResp response.R
+	json.Unmarshal(w.Body.Bytes(), &createResp)
+	tData := createResp.Data.(map[string]interface{})
+	tenantID := tData["id"].(string)
+
+	// 列表
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("GET", "/api/v1/admin/tenants", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("list: expected 200, got %d", w.Code)
+	}
+
+	// 获取单个
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("GET", "/api/v1/admin/tenants/"+tenantID, nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("get: expected 200, got %d", w.Code)
+	}
+
+	// 更新
+	updateBody, _ := json.Marshal(map[string]interface{}{"name": "UpdatedTenant", "status": 0})
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("PUT", "/api/v1/admin/tenants/"+tenantID, updateBody))
+	if w.Code != http.StatusOK {
+		t.Fatalf("update: expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// 使用详情
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("GET", "/api/v1/admin/tenants/"+tenantID+"/usage", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("usage: expected 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+
+	// 删除
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("DELETE", "/api/v1/admin/tenants/"+tenantID, nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("delete: expected 200, got %d", w.Code)
+	}
+}
+
+// ===== 非管理员访问管理接口被拒 =====
+
+func TestAPI_Admin_ForbiddenForUser(t *testing.T) {
+	r := Setup(testConfig(), testDB())
+
+	// 生成普通用户 Token
+	userToken, _ := auth.GenerateToken("u2", "t1", "normaluser", "user")
+
+	req := httptest.NewRequest("GET", "/api/v1/admin/tenants", nil)
+	req.Header.Set("Authorization", "Bearer "+userToken)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for normal user, got %d, body: %s", w.Code, w.Body.String())
+	}
+}
+
+// ===== 创建重名租户被拒 =====
+
+func TestAPI_Admin_Tenant_DuplicateName(t *testing.T) {
+	r := Setup(testConfig(), testDB())
+
+	// 第一次创建（"Test"已在testDB中存在）
+	body, _ := json.Marshal(map[string]string{"name": "Test"})
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, authReq("POST", "/api/v1/admin/tenants", body))
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for duplicate, got %d, body: %s", w.Code, w.Body.String())
+	}
+}

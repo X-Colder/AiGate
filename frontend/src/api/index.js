@@ -52,4 +52,14 @@ export const metricApi = {
     getTrend: (params) => api.get('/metrics/trend', { params })
 }
 
+// 租户管理（管理员专用）
+export const tenantApi = {
+    list: () => api.get('/admin/tenants'),
+    getById: (id) => api.get(`/admin/tenants/${id}`),
+    create: (data) => api.post('/admin/tenants', data),
+    update: (id, data) => api.put(`/admin/tenants/${id}`, data),
+    remove: (id) => api.delete(`/admin/tenants/${id}`),
+    getUsage: (id) => api.get(`/admin/tenants/${id}/usage`)
+}
+
 export default api

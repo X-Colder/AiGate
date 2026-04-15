@@ -16,17 +16,31 @@ const routes = [
                 path: 'tenants',
                 name: 'Tenants',
                 component: () => import('../views/Tenants.vue'),
-                meta: { requiresAdmin: true }
+                meta: { permission: 'tenant_access' }
+            },
+            {
+                path: 'users',
+                name: 'Users',
+                component: () => import('../views/Users.vue'),
+                meta: { permission: 'tenant_access' }
+            },
+            {
+                path: 'roles',
+                name: 'Roles',
+                component: () => import('../views/Roles.vue'),
+                meta: { permission: 'tenant_access' }
             },
             {
                 path: 'gateways',
                 name: 'Gateways',
-                component: () => import('../views/Gateways.vue')
+                component: () => import('../views/Gateways.vue'),
+                meta: { permission: 'gateway_access' }
             },
             {
                 path: 'monitor',
                 name: 'Monitor',
-                component: () => import('../views/Monitor.vue')
+                component: () => import('../views/Monitor.vue'),
+                meta: { permission: 'monitor_access' }
             }
         ]
     }
@@ -37,16 +51,29 @@ const router = createRouter({
     routes
 })
 
-// 路由守卫：未登录跳转到登录页，非管理员禁止访问管理页
+// 路由守卫：按 RBAC permissions 控制页面访问
 router.beforeEach((to, from, next) => {
     const token = localStorage.getItem('token')
     if (to.path !== '/login' && !token) {
         next('/login')
-    } else if (to.meta.requiresAdmin && localStorage.getItem('role') !== 'admin') {
-        next('/gateways')
-    } else {
-        next()
+        return
     }
+
+    if (to.meta.permission) {
+        try {
+            const permissions = JSON.parse(localStorage.getItem('permissions') || '{}')
+            if (!permissions[to.meta.permission]) {
+                // 无权限则跳转到第一个有权限的页面
+                next('/gateways')
+                return
+            }
+        } catch {
+            next('/gateways')
+            return
+        }
+    }
+
+    next()
 })
 
 export default router

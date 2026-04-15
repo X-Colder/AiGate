@@ -28,6 +28,7 @@ func InitDB(dbPath string) error {
 	if err := DB.AutoMigrate(
 		&model.Tenant{},
 		&model.User{},
+		&model.Role{},
 		&model.Gateway{},
 		&model.GatewayPolicy{},
 		&model.MetricRecord{},
@@ -49,8 +50,17 @@ func SetDB(db *gorm.DB) {
 	DB = db
 }
 
-// InitDefaultTenant 创建默认租户和管理员账户（首次启动时）
+// DefaultAdminRoleID 默认管理员角色 ID
+const DefaultAdminRoleID = "00000000-0000-0000-0000-000000000010"
+
+// DefaultUserRoleID 默认普通用户角色 ID
+const DefaultUserRoleID = "00000000-0000-0000-0000-000000000011"
+
+// InitDefaultTenant 创建默认租户、默认角色和管理员账户（首次启动时）
 func InitDefaultTenant() error {
+	// 初始化默认角色
+	initDefaultRoles()
+
 	var count int64
 	DB.Model(&model.Tenant{}).Count(&count)
 	if count > 0 {
@@ -72,6 +82,7 @@ func InitDefaultTenant() error {
 		TenantID: DefaultTenantID,
 		Username: "admin",
 		Password: "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9", // sha256("admin123")
+		RoleID:   DefaultAdminRoleID,
 		Role:     "admin",
 		Status:   1,
 	}
@@ -81,4 +92,19 @@ func InitDefaultTenant() error {
 
 	logger.Infof("Default tenant and admin user created")
 	return nil
+}
+
+// initDefaultRoles 初始化系统内置角色
+func initDefaultRoles() {
+	roles := []model.Role{
+		{ID: DefaultAdminRoleID, Name: "超级管理员", Description: "全部权限", TenantAccess: true, GatewayAccess: true, MonitorAccess: true, IsSystem: true},
+		{ID: DefaultUserRoleID, Name: "普通用户", Description: "网关管理和监控", TenantAccess: false, GatewayAccess: true, MonitorAccess: true, IsSystem: true},
+	}
+	for _, r := range roles {
+		var count int64
+		DB.Model(&model.Role{}).Where("id = ?", r.ID).Count(&count)
+		if count == 0 {
+			DB.Create(&r)
+		}
+	}
 }

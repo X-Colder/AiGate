@@ -39,8 +39,14 @@ func (h *GatewayHandler) Create(c *gin.Context) {
 }
 
 // List 处理 GET /api/v1/gateways
+// admin 查看所有网关；普通用户仅查看自己租户的网关
 func (h *GatewayHandler) List(c *gin.Context) {
+	role := c.GetString("role")
 	tenantID := c.GetString("tenant_id")
+	if role == "admin" {
+		tenantID = "" // admin 不限制租户
+	}
+
 	gateways, err := h.gatewayService.List(tenantID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())

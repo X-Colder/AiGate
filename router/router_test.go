@@ -28,9 +28,14 @@ func testDB() *gorm.DB {
 	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
 	})
-	db.AutoMigrate(&model.Tenant{}, &model.User{}, &model.Gateway{}, &model.GatewayPolicy{}, &model.MetricRecord{})
+	db.AutoMigrate(&model.Tenant{}, &model.User{}, &model.Role{}, &model.Gateway{}, &model.GatewayPolicy{}, &model.MetricRecord{})
 	// 创建默认租户
 	db.Create(&model.Tenant{ID: "t1", Name: "Test", Status: 1})
+	// 创建系统角色
+	db.Create(&model.Role{ID: "role-admin", Name: "超级管理员", TenantAccess: true, GatewayAccess: true, MonitorAccess: true, IsSystem: true})
+	db.Create(&model.Role{ID: "role-user", Name: "普通用户", TenantAccess: false, GatewayAccess: true, MonitorAccess: true, IsSystem: true})
+	// 创建 admin 用户 (对应 testToken 的 user_id "u1")
+	db.Create(&model.User{ID: "u1", TenantID: "t1", Username: "tester", Password: "dummy", RoleID: "role-admin", Role: "admin", Status: 1})
 	return db
 }
 
@@ -80,7 +85,7 @@ func TestAPI_Health_OK(t *testing.T) {
 func TestAPI_Auth_Login(t *testing.T) {
 	db := testDB()
 	// 创建用户 (sha256 of "pass123")
-	db.Create(&model.User{ID: "u1", TenantID: "t1", Username: "test", Password: "9b8769a4a742959a2d0298c36fb70623f2dfacda8436237df08d8dfd5b37374c", Role: "user", Status: 1})
+	db.Create(&model.User{ID: "u-login", TenantID: "t1", Username: "test", Password: "9b8769a4a742959a2d0298c36fb70623f2dfacda8436237df08d8dfd5b37374c", RoleID: "role-user", Role: "user", Status: 1})
 
 	r := Setup(testConfig(), db)
 	body, _ := json.Marshal(map[string]string{"username": "test", "password": "pass123"})
@@ -264,7 +269,7 @@ func TestAPI_Admin_Tenants_CRUD(t *testing.T) {
 	r := Setup(testConfig(), testDB())
 
 	// 创建租户
-	body, _ := json.Marshal(map[string]string{"name": "NewTenant"})
+	body, _ := json.Marshal(map[string]string{"name": "NewTenant", "admin_user": "newtenant_admin", "password": "pass123", "email": "test@example.com", "phone": "13800138000"})
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, authReq("POST", "/api/v1/admin/tenants", body))
 	if w.Code != http.StatusOK {
@@ -316,7 +321,11 @@ func TestAPI_Admin_Tenants_CRUD(t *testing.T) {
 // ===== 非管理员访问管理接口被拒 =====
 
 func TestAPI_Admin_ForbiddenForUser(t *testing.T) {
-	r := Setup(testConfig(), testDB())
+	db := testDB()
+	// 创建普通用户（无 tenant_access 权限）
+	db.Create(&model.User{ID: "u2", TenantID: "t1", Username: "normaluser", Password: "dummy", RoleID: "role-user", Role: "user", Status: 1})
+
+	r := Setup(testConfig(), db)
 
 	// 生成普通用户 Token
 	userToken, _ := auth.GenerateToken("u2", "t1", "normaluser", "user")
@@ -337,7 +346,7 @@ func TestAPI_Admin_Tenant_DuplicateName(t *testing.T) {
 	r := Setup(testConfig(), testDB())
 
 	// 第一次创建（"Test"已在testDB中存在）
-	body, _ := json.Marshal(map[string]string{"name": "Test"})
+	body, _ := json.Marshal(map[string]string{"name": "Test", "password": "pass123"})
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, authReq("POST", "/api/v1/admin/tenants", body))
 	if w.Code != http.StatusBadRequest {

@@ -7,19 +7,31 @@
             </div>
             <el-menu :default-active="$route.path" router background-color="#1d3a5f" text-color="#ffffffcc"
                 active-text-color="#409eff">
-                <el-menu-item index="/tenants" v-if="isAdmin">
+                <el-menu-item index="/tenants" v-if="permissions.tenant_access">
                     <el-icon>
                         <OfficeBuilding />
                     </el-icon>
                     <span>租户管理</span>
                 </el-menu-item>
-                <el-menu-item index="/gateways">
+                <el-menu-item index="/users" v-if="permissions.tenant_access">
+                    <el-icon>
+                        <UserFilled />
+                    </el-icon>
+                    <span>用户管理</span>
+                </el-menu-item>
+                <el-menu-item index="/roles" v-if="permissions.tenant_access">
+                    <el-icon>
+                        <Key />
+                    </el-icon>
+                    <span>角色管理</span>
+                </el-menu-item>
+                <el-menu-item index="/gateways" v-if="permissions.gateway_access">
                     <el-icon>
                         <Connection />
                     </el-icon>
                     <span>网关管理</span>
                 </el-menu-item>
-                <el-menu-item index="/monitor">
+                <el-menu-item index="/monitor" v-if="permissions.monitor_access">
                     <el-icon>
                         <DataLine />
                     </el-icon>
@@ -66,7 +78,20 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const username = computed(() => localStorage.getItem('username') || 'User')
-const isAdmin = computed(() => localStorage.getItem('role') === 'admin')
+
+// 从 localStorage 读取 RBAC 权限
+const permissions = computed(() => {
+    try {
+        const p = JSON.parse(localStorage.getItem('permissions') || '{}')
+        return {
+            tenant_access: !!p.tenant_access,
+            gateway_access: !!p.gateway_access,
+            monitor_access: !!p.monitor_access
+        }
+    } catch {
+        return { tenant_access: false, gateway_access: true, monitor_access: true }
+    }
+})
 
 const handleLogout = () => {
     localStorage.clear()

@@ -53,6 +53,10 @@ const handleLogin = async () => {
         localStorage.setItem('username', res.data.username)
         localStorage.setItem('tenant_id', res.data.tenant_id)
         localStorage.setItem('role', res.data.role)
+        // 保存 RBAC 权限
+        if (res.data.permissions) {
+            localStorage.setItem('permissions', JSON.stringify(res.data.permissions))
+        }
         ElMessage.success('登录成功')
         router.push('/')
     } catch (e) {

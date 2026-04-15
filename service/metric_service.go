@@ -29,6 +29,7 @@ func (s *MetricService) Record(record *model.MetricRecord) error {
 }
 
 // GetSummary 获取指定时间段的汇总数据
+// tenantID 为空表示查所有（admin），非空则过滤指定租户
 func (s *MetricService) GetSummary(tenantID string, query *model.MetricQuery) (*model.MetricSummary, error) {
 	startTime, endTime, err := parseDateRange(query.StartDate, query.EndDate)
 	if err != nil {
@@ -36,8 +37,14 @@ func (s *MetricService) GetSummary(tenantID string, query *model.MetricQuery) (*
 	}
 
 	db := s.db.Model(&model.MetricRecord{}).
-		Where("tenant_id = ? AND timestamp >= ? AND timestamp < ?", tenantID, startTime, endTime)
+		Where("timestamp >= ? AND timestamp < ?", startTime, endTime)
 
+	if tenantID != "" {
+		db = db.Where("tenant_id = ?", tenantID)
+	}
+	if query.TenantID != "" {
+		db = db.Where("tenant_id = ?", query.TenantID)
+	}
 	if query.GatewayID != "" {
 		db = db.Where("gateway_id = ?", query.GatewayID)
 	}
@@ -63,6 +70,7 @@ func (s *MetricService) GetSummary(tenantID string, query *model.MetricQuery) (*
 }
 
 // GetTrend 获取趋势数据（按日聚合），用于前端折线图展示
+// tenantID 为空表示查所有（admin），非空则过滤指定租户
 func (s *MetricService) GetTrend(tenantID string, query *model.MetricQuery) ([]map[string]interface{}, error) {
 	startTime, endTime, err := parseDateRange(query.StartDate, query.EndDate)
 	if err != nil {
@@ -70,8 +78,14 @@ func (s *MetricService) GetTrend(tenantID string, query *model.MetricQuery) ([]m
 	}
 
 	db := s.db.Model(&model.MetricRecord{}).
-		Where("tenant_id = ? AND timestamp >= ? AND timestamp < ?", tenantID, startTime, endTime)
+		Where("timestamp >= ? AND timestamp < ?", startTime, endTime)
 
+	if tenantID != "" {
+		db = db.Where("tenant_id = ?", tenantID)
+	}
+	if query.TenantID != "" {
+		db = db.Where("tenant_id = ?", query.TenantID)
+	}
 	if query.GatewayID != "" {
 		db = db.Where("gateway_id = ?", query.GatewayID)
 	}

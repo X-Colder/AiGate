@@ -47,6 +47,14 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 	tenantService := service.NewTenantService(db)
 	tenantHandler := handler.NewTenantHandler(tenantService)
 
+	// 角色管理（仅管理员）
+	roleService := service.NewRoleService(db)
+	roleHandler := handler.NewRoleHandler(roleService)
+
+	// 用户管理（仅管理员）
+	userService := service.NewUserService(db)
+	userHandler := handler.NewUserHandler(userService)
+
 	// ===== 前端静态文件服务 =====
 	r.Static("/assets", "./frontend/dist/assets")
 	r.StaticFile("/", "./frontend/dist/index.html")
@@ -76,9 +84,9 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 			auth.POST("/register", authHandler.Register)
 		}
 
-		// 需要认证的接口
+		// 需要认证的接口（Auth 中间件注入权限信息）
 		protected := api.Group("")
-		protected.Use(middleware.Auth())
+		protected.Use(middleware.Auth(db))
 		{
 			// 聊天
 			protected.POST("/chat", chatHandler.Chat)
@@ -97,9 +105,9 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 			protected.GET("/metrics/trend", metricHandler.GetTrend)
 		}
 
-		// 管理员专用接口（需认证 + admin 角色）
+		// 管理员专用接口（需认证 + 租户管理权限）
 		admin := api.Group("/admin")
-		admin.Use(middleware.Auth(), middleware.AdminOnly())
+		admin.Use(middleware.Auth(db), middleware.RequireTenantAccess())
 		{
 			admin.GET("/tenants", tenantHandler.List)
 			admin.POST("/tenants", tenantHandler.Create)
@@ -107,6 +115,18 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 			admin.PUT("/tenants/:id", tenantHandler.Update)
 			admin.DELETE("/tenants/:id", tenantHandler.Delete)
 			admin.GET("/tenants/:id/usage", tenantHandler.GetUsage)
+
+			admin.GET("/roles", roleHandler.List)
+			admin.POST("/roles", roleHandler.Create)
+			admin.GET("/roles/:id", roleHandler.GetByID)
+			admin.PUT("/roles/:id", roleHandler.Update)
+			admin.DELETE("/roles/:id", roleHandler.Delete)
+
+			admin.GET("/users", userHandler.List)
+			admin.POST("/users", userHandler.Create)
+			admin.GET("/users/:id", userHandler.GetByID)
+			admin.PUT("/users/:id", userHandler.Update)
+			admin.DELETE("/users/:id", userHandler.Delete)
 		}
 	}
 

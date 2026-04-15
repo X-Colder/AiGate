@@ -62,4 +62,22 @@ export const tenantApi = {
     getUsage: (id) => api.get(`/admin/tenants/${id}/usage`)
 }
 
+// 角色管理（管理员专用）
+export const roleApi = {
+    list: () => api.get('/admin/roles'),
+    getById: (id) => api.get(`/admin/roles/${id}`),
+    create: (data) => api.post('/admin/roles', data),
+    update: (id, data) => api.put(`/admin/roles/${id}`, data),
+    remove: (id) => api.delete(`/admin/roles/${id}`)
+}
+
+// 用户管理（管理员专用）
+export const userApi = {
+    list: () => api.get('/admin/users'),
+    getById: (id) => api.get(`/admin/users/${id}`),
+    create: (data) => api.post('/admin/users', data),
+    update: (id, data) => api.put(`/admin/users/${id}`, data),
+    remove: (id) => api.delete(`/admin/users/${id}`)
+}
+
 export default api

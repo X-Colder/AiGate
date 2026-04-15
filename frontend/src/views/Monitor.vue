@@ -3,9 +3,15 @@
         <!-- 筛选栏 -->
         <el-card shadow="hover" style="margin-bottom:20px">
             <el-form :inline="true" :model="queryForm">
+                <el-form-item label="租户" v-if="isAdmin">
+                    <el-select v-model="queryForm.tenant_id" placeholder="全部租户" clearable style="width:180px"
+                        @change="onTenantChange">
+                        <el-option v-for="t in tenants" :key="t.id" :label="t.name" :value="t.id" />
+                    </el-select>
+                </el-form-item>
                 <el-form-item label="网关">
                     <el-select v-model="queryForm.gateway_id" placeholder="全部网关" clearable style="width:200px">
-                        <el-option v-for="gw in gateways" :key="gw.id" :label="gw.name" :value="gw.id" />
+                        <el-option v-for="gw in filteredGateways" :key="gw.id" :label="gw.name" :value="gw.id" />
                     </el-select>
                 </el-form-item>
                 <el-form-item label="日期范围">
@@ -71,15 +77,28 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
-import { gatewayApi, metricApi } from '../api'
+import { gatewayApi, metricApi, tenantApi } from '../api'
 
 use([CanvasRenderer, LineChart, GridComponent, TooltipComponent, LegendComponent])
 
+const isAdmin = computed(() => localStorage.getItem('role') === 'admin')
+const tenants = ref([])
 const gateways = ref([])
-const queryForm = ref({ gateway_id: '' })
+const queryForm = ref({ gateway_id: '', tenant_id: '' })
 const dateRange = ref([])
 const summary = ref({})
 const trend = ref([])
+
+// admin 切换租户时重置网关筛选
+const onTenantChange = () => {
+    queryForm.value.gateway_id = ''
+}
+
+// 按选中租户过滤网关下拉列表
+const filteredGateways = computed(() => {
+    if (!queryForm.value.tenant_id) return gateways.value
+    return gateways.value.filter(gw => gw.tenant_id === queryForm.value.tenant_id)
+})
 
 // 默认查最近 7 天
 const getDefaultRange = () => {
@@ -116,6 +135,7 @@ const fetchData = async () => {
     const range = dateRange.value?.length === 2 ? dateRange.value : getDefaultRange()
     const params = { start_date: range[0], end_date: range[1] }
     if (queryForm.value.gateway_id) params.gateway_id = queryForm.value.gateway_id
+    if (queryForm.value.tenant_id) params.tenant_id = queryForm.value.tenant_id
 
     try {
         const [summaryRes, trendRes] = await Promise.all([
@@ -135,6 +155,12 @@ onMounted(async () => {
         const res = await gatewayApi.list()
         gateways.value = res.data || []
     } catch (e) { }
+    if (isAdmin.value) {
+        try {
+            const res = await tenantApi.list()
+            tenants.value = res.data || []
+        } catch (e) { }
+    }
     fetchData()
 })
 </script>

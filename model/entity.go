@@ -10,6 +10,8 @@ import (
 type Tenant struct {
 	ID        string    `json:"id" gorm:"primaryKey;size:36"`
 	Name      string    `json:"name" gorm:"size:100;not null;uniqueIndex"`
+	Email     string    `json:"email" gorm:"size:150"`
+	Phone     string    `json:"phone" gorm:"size:30"`
 	Status    int       `json:"status" gorm:"default:1"` // 1=启用 0=禁用
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -21,10 +23,24 @@ type User struct {
 	TenantID  string    `json:"tenant_id" gorm:"size:36;not null;index"`
 	Username  string    `json:"username" gorm:"size:50;not null;uniqueIndex"`
 	Password  string    `json:"-" gorm:"size:128;not null"`       // json 忽略密码输出
-	Role      string    `json:"role" gorm:"size:20;default:user"` // admin, user
+	RoleID    string    `json:"role_id" gorm:"size:36"`           // 关联角色
+	Role      string    `json:"role" gorm:"size:20;default:user"` // admin, user（兼容旧逻辑）
 	Status    int       `json:"status" gorm:"default:1"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// Role RBAC 角色实体，定义模块访问权限
+type Role struct {
+	ID            string    `json:"id" gorm:"primaryKey;size:36"`
+	Name          string    `json:"name" gorm:"size:50;not null;uniqueIndex"`
+	Description   string    `json:"description" gorm:"size:200"`
+	TenantAccess  bool      `json:"tenant_access" gorm:"default:false"`  // 租户管理权限
+	GatewayAccess bool      `json:"gateway_access" gorm:"default:false"` // 网关管理权限
+	MonitorAccess bool      `json:"monitor_access" gorm:"default:false"` // 监控面板权限
+	IsSystem      bool      `json:"is_system" gorm:"default:false"`      // 系统内置角色不可删
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // Gateway AI 网关实体，每个网关对应一个 AI 服务提供者
@@ -80,6 +96,7 @@ type MetricRecord struct {
 // TableName 自定义表名
 func (Tenant) TableName() string        { return "tenants" }
 func (User) TableName() string          { return "users" }
+func (Role) TableName() string          { return "roles" }
 func (Gateway) TableName() string       { return "gateways" }
 func (GatewayPolicy) TableName() string { return "gateway_policies" }
 func (MetricRecord) TableName() string  { return "metric_records" }

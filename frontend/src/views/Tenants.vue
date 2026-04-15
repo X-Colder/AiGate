@@ -12,10 +12,12 @@
                 </div>
             </template>
             <el-table :data="tenants" stripe v-loading="loading" style="width:100%">
-                <el-table-column prop="name" label="租户名称" min-width="150" />
-                <el-table-column prop="user_count" label="用户数" width="100" align="center" />
-                <el-table-column prop="gateway_count" label="网关数" width="100" align="center" />
-                <el-table-column prop="status" label="状态" width="100" align="center">
+                <el-table-column prop="name" label="租户名称" min-width="130" />
+                <el-table-column prop="email" label="邮箱" min-width="160" />
+                <el-table-column prop="phone" label="电话" width="130" />
+                <el-table-column prop="user_count" label="用户数" width="80" align="center" />
+                <el-table-column prop="gateway_count" label="网关数" width="80" align="center" />
+                <el-table-column prop="status" label="状态" width="80" align="center">
                     <template #default="{ row }">
                         <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
                             {{ row.status === 1 ? '启用' : '禁用' }}
@@ -54,10 +56,22 @@
         </el-card>
 
         <!-- 新增/编辑对话框 -->
-        <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑租户' : '新增租户'" width="450px" destroy-on-close>
+        <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑租户' : '新增租户'" width="500px" destroy-on-close>
             <el-form :model="form" label-width="80px">
                 <el-form-item label="租户名称">
                     <el-input v-model="form.name" placeholder="请输入租户名称" />
+                </el-form-item>
+                <el-form-item label="管理账号" v-if="!isEdit">
+                    <el-input v-model="form.admin_user" placeholder="租户管理员登录用户名" />
+                </el-form-item>
+                <el-form-item label="密码" v-if="!isEdit">
+                    <el-input v-model="form.password" type="password" placeholder="租户管理员密码" show-password />
+                </el-form-item>
+                <el-form-item label="邮箱">
+                    <el-input v-model="form.email" placeholder="请输入邮箱" />
+                </el-form-item>
+                <el-form-item label="电话">
+                    <el-input v-model="form.phone" placeholder="请输入电话" />
                 </el-form-item>
                 <el-form-item label="状态" v-if="isEdit">
                     <el-switch v-model="form.statusBool" active-text="启用" inactive-text="禁用" />
@@ -119,7 +133,7 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref('')
 const submitting = ref(false)
-const form = ref({ name: '', statusBool: true })
+const form = ref({ name: '', admin_user: '', password: '', email: '', phone: '', statusBool: true })
 
 const usageVisible = ref(false)
 const usageLoading = ref(false)
@@ -144,14 +158,14 @@ const fetchTenants = async () => {
 
 const showCreate = () => {
     isEdit.value = false
-    form.value = { name: '', statusBool: true }
+    form.value = { name: '', admin_user: '', password: '', email: '', phone: '', statusBool: true }
     dialogVisible.value = true
 }
 
 const showEdit = (row) => {
     isEdit.value = true
     editId.value = row.id
-    form.value = { name: row.name, statusBool: row.status === 1 }
+    form.value = { name: row.name, password: '', email: row.email || '', phone: row.phone || '', statusBool: row.status === 1 }
     dialogVisible.value = true
 }
 
@@ -160,17 +174,33 @@ const handleSubmit = async () => {
         ElMessage.warning('请输入租户名称')
         return
     }
+    if (!isEdit.value && !form.value.admin_user) {
+        ElMessage.warning('请输入管理员用户名')
+        return
+    }
+    if (!isEdit.value && !form.value.password) {
+        ElMessage.warning('请输入密码')
+        return
+    }
     submitting.value = true
     try {
         if (isEdit.value) {
             await tenantApi.update(editId.value, {
                 name: form.value.name,
+                email: form.value.email,
+                phone: form.value.phone,
                 status: form.value.statusBool ? 1 : 0
             })
             ElMessage.success('更新成功')
         } else {
-            await tenantApi.create({ name: form.value.name })
-            ElMessage.success('创建成功')
+            await tenantApi.create({
+                name: form.value.name,
+                admin_user: form.value.admin_user,
+                password: form.value.password,
+                email: form.value.email,
+                phone: form.value.phone
+            })
+            ElMessage.success(`创建成功，管理员账号: ${form.value.admin_user}`)
         }
         dialogVisible.value = false
         fetchTenants()

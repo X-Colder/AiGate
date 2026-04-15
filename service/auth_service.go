@@ -56,15 +56,16 @@ func (s *AuthService) Register(req *model.RegisterRequest) (*model.LoginResponse
 	}
 
 	return &model.LoginResponse{
-		Token:    token,
-		UserID:   user.ID,
-		Username: user.Username,
-		TenantID: user.TenantID,
-		Role:     user.Role,
+		Token:       token,
+		UserID:      user.ID,
+		Username:    user.Username,
+		TenantID:    user.TenantID,
+		Role:        user.Role,
+		Permissions: model.Permissions{TenantAccess: false, GatewayAccess: true, MonitorAccess: true},
 	}, nil
 }
 
-// Login 用户登录
+// Login 用户登录（查询角色权限并返回）
 func (s *AuthService) Login(req *model.LoginRequest) (*model.LoginResponse, error) {
 	var user model.User
 	if err := s.db.Where("username = ? AND status = 1", req.Username).First(&user).Error; err != nil {
@@ -75,17 +76,34 @@ func (s *AuthService) Login(req *model.LoginRequest) (*model.LoginResponse, erro
 		return nil, fmt.Errorf("invalid username or password")
 	}
 
+	// 查询用户关联的角色权限
+	permissions := model.Permissions{}
+	if user.RoleID != "" {
+		var role model.Role
+		if err := s.db.Where("id = ?", user.RoleID).First(&role).Error; err == nil {
+			permissions.TenantAccess = role.TenantAccess
+			permissions.GatewayAccess = role.GatewayAccess
+			permissions.MonitorAccess = role.MonitorAccess
+		}
+	} else if user.Role == "admin" {
+		// 兼容旧用户无 RoleID 的情况
+		permissions = model.Permissions{TenantAccess: true, GatewayAccess: true, MonitorAccess: true}
+	} else {
+		permissions = model.Permissions{TenantAccess: false, GatewayAccess: true, MonitorAccess: true}
+	}
+
 	token, err := auth.GenerateToken(user.ID, user.TenantID, user.Username, user.Role)
 	if err != nil {
 		return nil, fmt.Errorf("generate token error: %w", err)
 	}
 
 	return &model.LoginResponse{
-		Token:    token,
-		UserID:   user.ID,
-		Username: user.Username,
-		TenantID: user.TenantID,
-		Role:     user.Role,
+		Token:       token,
+		UserID:      user.ID,
+		Username:    user.Username,
+		TenantID:    user.TenantID,
+		Role:        user.Role,
+		Permissions: permissions,
 	}, nil
 }
 

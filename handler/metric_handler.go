@@ -21,8 +21,14 @@ func NewMetricHandler(metricService *service.MetricService) *MetricHandler {
 }
 
 // GetSummary 处理 GET /api/v1/metrics/summary
+// admin 可查看所有租户数据并按 tenant_id 参数筛选；普通用户仅查看自己租户
 func (h *MetricHandler) GetSummary(c *gin.Context) {
+	role := c.GetString("role")
 	tenantID := c.GetString("tenant_id")
+	if role == "admin" {
+		tenantID = "" // admin 不限制租户，由 query.TenantID 筛选
+	}
+
 	var query model.MetricQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid query: "+err.Error())
@@ -39,8 +45,14 @@ func (h *MetricHandler) GetSummary(c *gin.Context) {
 }
 
 // GetTrend 处理 GET /api/v1/metrics/trend
+// admin 可查看所有租户趋势并按 tenant_id 参数筛选；普通用户仅查看自己租户
 func (h *MetricHandler) GetTrend(c *gin.Context) {
+	role := c.GetString("role")
 	tenantID := c.GetString("tenant_id")
+	if role == "admin" {
+		tenantID = ""
+	}
+
 	var query model.MetricQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		response.Error(c, http.StatusBadRequest, "Invalid query: "+err.Error())

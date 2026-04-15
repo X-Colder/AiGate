@@ -2,12 +2,14 @@
 package service
 
 import (
+	"crypto/sha256"
 	"fmt"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/aigate/model"
+	"github.com/aigate/store"
 )
 
 // TenantService 租户管理业务服务
@@ -20,7 +22,7 @@ func NewTenantService(db *gorm.DB) *TenantService {
 	return &TenantService{db: db}
 }
 
-// Create 创建新租户
+// Create 创建新租户（同时创建该租户的管理员用户）
 func (s *TenantService) Create(req *model.CreateTenantRequest) (*model.Tenant, error) {
 	var count int64
 	s.db.Model(&model.Tenant{}).Where("name = ?", req.Name).Count(&count)
@@ -31,10 +33,32 @@ func (s *TenantService) Create(req *model.CreateTenantRequest) (*model.Tenant, e
 	tenant := model.Tenant{
 		ID:     uuid.New().String(),
 		Name:   req.Name,
+		Email:  req.Email,
+		Phone:  req.Phone,
 		Status: 1,
 	}
-	if err := s.db.Create(&tenant).Error; err != nil {
-		return nil, fmt.Errorf("create tenant error: %w", err)
+
+	// 事务：创建租户 + 创建该租户的管理员用户
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&tenant).Error; err != nil {
+			return fmt.Errorf("create tenant error: %w", err)
+		}
+		admin := model.User{
+			ID:       uuid.New().String(),
+			TenantID: tenant.ID,
+			Username: req.AdminUser,
+			Password: fmt.Sprintf("%x", sha256.Sum256([]byte(req.Password))),
+			RoleID:   store.DefaultUserRoleID,
+			Role:     "user",
+			Status:   1,
+		}
+		if err := tx.Create(&admin).Error; err != nil {
+			return fmt.Errorf("create tenant admin user error: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return &tenant, nil
 }
@@ -74,6 +98,12 @@ func (s *TenantService) Update(id string, req *model.UpdateTenantRequest) (*mode
 	updates := map[string]interface{}{}
 	if req.Name != "" {
 		updates["name"] = req.Name
+	}
+	if req.Email != "" {
+		updates["email"] = req.Email
+	}
+	if req.Phone != "" {
+		updates["phone"] = req.Phone
 	}
 	if req.Status != nil {
 		updates["status"] = *req.Status

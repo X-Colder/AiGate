@@ -56,10 +56,15 @@ func (s *GatewayService) Create(tenantID string, req *model.CreateGatewayRequest
 	return s.GetByID(tenantID, gw.ID)
 }
 
-// List 获取租户下所有网关
+// List 获取网关列表
+// tenantID 为空则查所有（admin），非空则只查指定租户
 func (s *GatewayService) List(tenantID string) ([]model.Gateway, error) {
 	var gateways []model.Gateway
-	if err := s.db.Where("tenant_id = ?", tenantID).Preload("Policy").Find(&gateways).Error; err != nil {
+	db := s.db.Preload("Policy")
+	if tenantID != "" {
+		db = db.Where("tenant_id = ?", tenantID)
+	}
+	if err := db.Find(&gateways).Error; err != nil {
 		return nil, fmt.Errorf("list gateways error: %w", err)
 	}
 	return gateways, nil

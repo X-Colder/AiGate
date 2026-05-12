@@ -50,13 +50,13 @@ func setupService() (*ChatService, *mockProvider) {
 		},
 	}
 	registry.Register(mock)
-	svc := NewChatService(registry)
+	svc := NewChatService(registry, nil, nil)
 	return svc, mock
 }
 
 func TestNewChatService(t *testing.T) {
 	registry := provider.NewRegistry()
-	svc := NewChatService(registry)
+	svc := NewChatService(registry, nil, nil)
 	if svc == nil {
 		t.Fatal("expected non-nil service")
 	}

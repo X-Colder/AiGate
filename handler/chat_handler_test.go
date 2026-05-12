@@ -54,7 +54,7 @@ func setupHandler() (*ChatHandler, *gin.Engine) {
 			Usage:    &model.Usage{PromptTokens: 5, CompletionTokens: 10, TotalTokens: 15},
 		},
 	})
-	svc := service.NewChatService(registry)
+	svc := service.NewChatService(registry, nil, nil)
 	h := NewChatHandler(svc)
 
 	r := gin.New()

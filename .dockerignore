@@ -1,0 +1,8 @@
+aigate.db
+*.db
+.git
+.claude
+.env
+node_modules
+frontend/node_modules
+docs

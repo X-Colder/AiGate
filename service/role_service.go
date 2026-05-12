@@ -27,11 +27,32 @@ func (s *RoleService) List() ([]model.RoleDetail, error) {
 		return nil, fmt.Errorf("list roles error: %w", err)
 	}
 
+	if len(roles) == 0 {
+		return []model.RoleDetail{}, nil
+	}
+
+	// 批量查询各角色的用户数
+	roleIDs := make([]string, len(roles))
+	for i, r := range roles {
+		roleIDs[i] = r.ID
+	}
+
+	type countResult struct {
+		RoleID string
+		Count  int64
+	}
+	var userCounts []countResult
+	s.db.Model(&model.User{}).Select("role_id, COUNT(*) as count").
+		Where("role_id IN ?", roleIDs).Group("role_id").Scan(&userCounts)
+
+	countMap := make(map[string]int64)
+	for _, uc := range userCounts {
+		countMap[uc.RoleID] = uc.Count
+	}
+
 	details := make([]model.RoleDetail, len(roles))
 	for i, r := range roles {
-		var count int64
-		s.db.Model(&model.User{}).Where("role_id = ?", r.ID).Count(&count)
-		details[i] = model.RoleDetail{Role: r, UserCount: count}
+		details[i] = model.RoleDetail{Role: r, UserCount: countMap[r.ID]}
 	}
 	return details, nil
 }

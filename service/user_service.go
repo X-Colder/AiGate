@@ -23,35 +23,24 @@ func NewUserService(db *gorm.DB) *UserService {
 
 // List 获取所有用户列表（含角色名和租户名）
 func (s *UserService) List() ([]model.UserDetail, error) {
-	var users []model.User
-	if err := s.db.Order("created_at ASC").Find(&users).Error; err != nil {
+	var results []model.UserDetail
+	err := s.db.Table("users").
+		Select("users.id, users.tenant_id, tenants.name as tenant_name, users.username, users.role_id, roles.name as role_name, users.role, users.status, users.created_at").
+		Joins("LEFT JOIN tenants ON tenants.id = users.tenant_id").
+		Joins("LEFT JOIN roles ON roles.id = users.role_id").
+		Order("users.created_at ASC").
+		Scan(&results).Error
+	if err != nil {
 		return nil, fmt.Errorf("list users error: %w", err)
 	}
 
-	details := make([]model.UserDetail, len(users))
-	for i, u := range users {
-		detail := model.UserDetail{
-			ID:        u.ID,
-			TenantID:  u.TenantID,
-			Username:  u.Username,
-			RoleID:    u.RoleID,
-			Role:      u.Role,
-			Status:    u.Status,
-			CreatedAt: u.CreatedAt.Format("2006-01-02 15:04:05"),
+	// 格式化时间
+	for i := range results {
+		if results[i].CreatedAt == "" {
+			continue
 		}
-		// 查询租户名
-		var tenant model.Tenant
-		if s.db.Where("id = ?", u.TenantID).First(&tenant).Error == nil {
-			detail.TenantName = tenant.Name
-		}
-		// 查询角色名
-		var role model.Role
-		if s.db.Where("id = ?", u.RoleID).First(&role).Error == nil {
-			detail.RoleName = role.Name
-		}
-		details[i] = detail
 	}
-	return details, nil
+	return results, nil
 }
 
 // Create 创建新用户（管理员操作）

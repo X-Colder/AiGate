@@ -35,6 +35,11 @@ func (h *ChatHandler) Chat(c *gin.Context) {
 		return
 	}
 
+	// 注入租户 ID（从认证中间件获取）
+	if tid, exists := c.Get("tenant_id"); exists {
+		req.TenantID, _ = tid.(string)
+	}
+
 	// 非流式请求：调用 Service 获取完整响应后一次性返回
 	if !req.Stream {
 		resp, err := h.chatService.Chat(c.Request.Context(), &req)

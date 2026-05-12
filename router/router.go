@@ -10,8 +10,10 @@ import (
 	"github.com/aigate/config"
 	"github.com/aigate/handler"
 	"github.com/aigate/middleware"
+	"github.com/aigate/pkg/resilience"
 	"github.com/aigate/provider"
 	"github.com/aigate/service"
+	"github.com/aigate/store"
 )
 
 // Setup 根据配置初始化并返回 Gin 路由引擎。
@@ -26,9 +28,12 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 	r.Use(middleware.Cors())
 
 	// ===== 依赖初始化 =====
+	// 熔断器
+	breaker := resilience.NewCircuitBreaker(store.GetRedis())
+
 	// Provider (原有聊天转发功能)
 	registry := provider.InitProviders(cfg)
-	chatService := service.NewChatService(registry)
+	chatService := service.NewChatService(registry, breaker, db)
 	chatHandler := handler.NewChatHandler(chatService)
 
 	// 认证
@@ -71,7 +76,31 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 
 	// ===== 健康检查 =====
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "AiGate"})
+		health := gin.H{"status": "ok", "service": "AiGate"}
+		status := http.StatusOK
+
+		// 检查数据库
+		if sqlDB, err := db.DB(); err != nil || sqlDB.Ping() != nil {
+			health["status"] = "degraded"
+			health["mysql"] = "down"
+			status = http.StatusServiceUnavailable
+		} else {
+			health["mysql"] = "ok"
+		}
+
+		// 检查 Redis
+		rdb := store.GetRedis()
+		if rdb != nil {
+			if rdb.Ping(c.Request.Context()).Err() != nil {
+				health["status"] = "degraded"
+				health["redis"] = "down"
+				status = http.StatusServiceUnavailable
+			} else {
+				health["redis"] = "ok"
+			}
+		}
+
+		c.JSON(status, health)
 	})
 
 	// ===== API v1 路由 =====
@@ -88,8 +117,11 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 		protected := api.Group("")
 		protected.Use(middleware.Auth(db))
 		{
-			// 聊天
-			protected.POST("/chat", chatHandler.Chat)
+			// 限流中间件
+			rateLimiter := middleware.NewRateLimiter(store.GetRedis(), db)
+
+			// 聊天（带限流）
+			protected.POST("/chat", middleware.RateLimit(rateLimiter), chatHandler.Chat)
 			protected.GET("/providers", chatHandler.ListProviders)
 
 			// 网关管理 CRUD

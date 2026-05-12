@@ -10,6 +10,7 @@ import (
 	"github.com/aigate/model"
 	"github.com/aigate/pkg/auth"
 	"github.com/aigate/pkg/response"
+	"github.com/aigate/store"
 )
 
 // Auth JWT 认证中间件，从 Authorization 头提取 Bearer Token 并验证。
@@ -37,30 +38,52 @@ func Auth(db ...*gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 将用户基础信息注入 gin.Context
 		c.Set("user_id", claims.UserID)
 		c.Set("tenant_id", claims.TenantID)
 		c.Set("username", claims.Username)
 		c.Set("role", claims.Role)
 
-		// 查询用户角色权限并注入 context（供 Permission 中间件使用）
 		if len(db) > 0 && db[0] != nil {
-			var user model.User
-			if db[0].Where("id = ?", claims.UserID).First(&user).Error == nil && user.RoleID != "" {
-				var role model.Role
-				if db[0].Where("id = ?", user.RoleID).First(&role).Error == nil {
-					c.Set("tenant_access", role.TenantAccess)
-					c.Set("gateway_access", role.GatewayAccess)
-					c.Set("monitor_access", role.MonitorAccess)
-				}
-			} else if claims.Role == "admin" {
-				// 兼容旧用户无 RoleID
-				c.Set("tenant_access", true)
-				c.Set("gateway_access", true)
-				c.Set("monitor_access", true)
-			}
+			loadPermissions(c, db[0], claims)
 		}
 
 		c.Next()
 	}
 }
+
+func loadPermissions(c *gin.Context, db *gorm.DB, claims *auth.Claims) {
+	var user model.User
+	if db.Where("id = ?", claims.UserID).First(&user).Error != nil || user.RoleID == "" {
+		if claims.Role == "admin" {
+			c.Set("tenant_access", true)
+			c.Set("gateway_access", true)
+			c.Set("monitor_access", true)
+		}
+		return
+	}
+
+	// Redis 缓存优先
+	cached, err := store.GetCachedRolePermissions(c.Request.Context(), user.RoleID)
+	if err == nil && cached != nil {
+		c.Set("tenant_access", cached.TenantAccess)
+		c.Set("gateway_access", cached.GatewayAccess)
+		c.Set("monitor_access", cached.MonitorAccess)
+		return
+	}
+
+	// 缓存未命中，查 DB
+	var role model.Role
+	if db.Where("id = ?", user.RoleID).First(&role).Error == nil {
+		c.Set("tenant_access", role.TenantAccess)
+		c.Set("gateway_access", role.GatewayAccess)
+		c.Set("monitor_access", role.MonitorAccess)
+
+		// 写回缓存
+		_ = store.CacheRolePermissions(c.Request.Context(), user.RoleID, &store.RolePermissions{
+			TenantAccess:  role.TenantAccess,
+			GatewayAccess: role.GatewayAccess,
+			MonitorAccess: role.MonitorAccess,
+		})
+	}
+}
+

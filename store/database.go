@@ -1,9 +1,13 @@
-// Package store 数据库连接和初始化
 package store
 
 import (
+	"fmt"
+	"time"
+
+	"github.com/aigate/config"
 	"github.com/aigate/model"
 	"github.com/aigate/pkg/logger"
+	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
@@ -11,20 +15,62 @@ import (
 
 var DB *gorm.DB
 
-// DefaultTenantID 默认租户 ID
 const DefaultTenantID = "00000000-0000-0000-0000-000000000001"
+const DefaultAdminRoleID = "00000000-0000-0000-0000-000000000010"
+const DefaultUserRoleID = "00000000-0000-0000-0000-000000000011"
 
-// InitDB 初始化 SQLite 数据库并自动迁移表结构
-func InitDB(dbPath string) error {
+func InitDB(cfg *config.DatabaseConfig) error {
+	var dialector gorm.Dialector
+
+	switch cfg.Driver {
+	case "mysql":
+		dsn := buildMySQLDSN(cfg)
+		dialector = mysql.Open(dsn)
+	case "sqlite":
+		path := cfg.Path
+		if path == "" {
+			path = "aigate.db"
+		}
+		dialector = sqlite.Open(path)
+	default:
+		return fmt.Errorf("unsupported database driver: %s", cfg.Driver)
+	}
+
 	var err error
-	DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+	DB, err = gorm.Open(dialector, &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
 	})
 	if err != nil {
 		return err
 	}
 
-	// 自动迁移所有实体表
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return fmt.Errorf("get underlying sql.DB error: %w", err)
+	}
+
+	maxOpen := cfg.MaxOpenConns
+	if maxOpen <= 0 {
+		maxOpen = 25
+	}
+	maxIdle := cfg.MaxIdleConns
+	if maxIdle <= 0 {
+		maxIdle = 10
+	}
+	maxLifetime := cfg.ConnMaxLifetime
+	if maxLifetime <= 0 {
+		maxLifetime = 300
+	}
+	maxIdleTime := cfg.ConnMaxIdleTime
+	if maxIdleTime <= 0 {
+		maxIdleTime = 60
+	}
+
+	sqlDB.SetMaxOpenConns(maxOpen)
+	sqlDB.SetMaxIdleConns(maxIdle)
+	sqlDB.SetConnMaxLifetime(time.Duration(maxLifetime) * time.Second)
+	sqlDB.SetConnMaxIdleTime(time.Duration(maxIdleTime) * time.Second)
+
 	if err := DB.AutoMigrate(
 		&model.Tenant{},
 		&model.User{},
@@ -36,29 +82,24 @@ func InitDB(dbPath string) error {
 		return err
 	}
 
-	logger.Infof("Database initialized: %s", dbPath)
+	logger.Infof("Database initialized: driver=%s", cfg.Driver)
 	return nil
 }
 
-// GetDB 获取数据库实例
+func buildMySQLDSN(cfg *config.DatabaseConfig) string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		cfg.Username, cfg.Password, cfg.Host, cfg.Port, cfg.Database)
+}
+
 func GetDB() *gorm.DB {
 	return DB
 }
 
-// SetDB 设置数据库实例（用于测试注入）
 func SetDB(db *gorm.DB) {
 	DB = db
 }
 
-// DefaultAdminRoleID 默认管理员角色 ID
-const DefaultAdminRoleID = "00000000-0000-0000-0000-000000000010"
-
-// DefaultUserRoleID 默认普通用户角色 ID
-const DefaultUserRoleID = "00000000-0000-0000-0000-000000000011"
-
-// InitDefaultTenant 创建默认租户、默认角色和管理员账户（首次启动时）
 func InitDefaultTenant() error {
-	// 初始化默认角色
 	initDefaultRoles()
 
 	var count int64
@@ -76,12 +117,11 @@ func InitDefaultTenant() error {
 		return err
 	}
 
-	// 创建默认管理员: admin/admin123
 	admin := model.User{
 		ID:       "00000000-0000-0000-0000-000000000001",
 		TenantID: DefaultTenantID,
 		Username: "admin",
-		Password: "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9", // sha256("admin123")
+		Password: "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
 		RoleID:   DefaultAdminRoleID,
 		Role:     "admin",
 		Status:   1,
@@ -94,7 +134,6 @@ func InitDefaultTenant() error {
 	return nil
 }
 
-// initDefaultRoles 初始化系统内置角色
 func initDefaultRoles() {
 	roles := []model.Role{
 		{ID: DefaultAdminRoleID, Name: "超级管理员", Description: "全部权限", TenantAccess: true, GatewayAccess: true, MonitorAccess: true, IsSystem: true},

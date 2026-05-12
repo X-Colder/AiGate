@@ -8,6 +8,7 @@ type ChatRequest struct {
 	Model    string    `json:"model"`                       // 模型名称（可选），未指定时使用提供者的默认模型
 	Messages []Message `json:"messages" binding:"required"` // 对话消息列表，至少包含一条
 	Stream   bool      `json:"stream"`                      // 是否启用流式响应（SSE），默认 false
+	TenantID string    `json:"-"`                           // 内部字段，由中间件注入
 }
 
 // Message 单条对话消息

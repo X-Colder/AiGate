@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -11,14 +12,34 @@ import (
 type Config struct {
 	Server    ServerConfig              `yaml:"server"`
 	Database  DatabaseConfig            `yaml:"database"`
+	Redis     RedisConfig               `yaml:"redis"`
 	LogLevel  string                    `yaml:"log_level"`
 	JWTSecret string                    `yaml:"jwt_secret"`
 	Providers map[string]ProviderConfig `yaml:"providers"`
 }
 
-// DatabaseConfig 数据库配置
+// DatabaseConfig 数据库配置，支持 MySQL 和 SQLite 双驱动
 type DatabaseConfig struct {
-	Path string `yaml:"path"` // SQLite 数据库文件路径
+	Driver          string `yaml:"driver"`
+	Host            string `yaml:"host"`
+	Port            int    `yaml:"port"`
+	Username        string `yaml:"username"`
+	Password        string `yaml:"password"`
+	Database        string `yaml:"database"`
+	MaxOpenConns    int    `yaml:"max_open_conns"`
+	MaxIdleConns    int    `yaml:"max_idle_conns"`
+	ConnMaxLifetime int    `yaml:"conn_max_lifetime"`
+	ConnMaxIdleTime int    `yaml:"conn_max_idle_time"`
+	Path            string `yaml:"path"` // SQLite 兼容
+}
+
+// RedisConfig Redis 连接配置
+type RedisConfig struct {
+	Addr         string `yaml:"addr"`
+	Password     string `yaml:"password"`
+	DB           int    `yaml:"db"`
+	PoolSize     int    `yaml:"pool_size"`
+	MinIdleConns int    `yaml:"min_idle_conns"`
 }
 
 // ServerConfig HTTP 服务配置
@@ -47,7 +68,7 @@ func Load() (*Config, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// 配置文件不存在，使用默认配置
+			applyEnvOverrides(cfg)
 			return cfg, nil
 		}
 		return nil, fmt.Errorf("read config file error: %w", err)
@@ -56,6 +77,8 @@ func Load() (*Config, error) {
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("parse config file error: %w", err)
 	}
+
+	applyEnvOverrides(cfg)
 
 	return cfg, nil
 }
@@ -78,7 +101,24 @@ func defaultConfig() *Config {
 			Mode: "debug",
 		},
 		Database: DatabaseConfig{
-			Path: "aigate.db",
+			Driver:          "sqlite",
+			Host:            "127.0.0.1",
+			Port:            3306,
+			Username:        "aigate",
+			Password:        "aigate_pass",
+			Database:        "aigate",
+			MaxOpenConns:    25,
+			MaxIdleConns:    10,
+			ConnMaxLifetime: 300,
+			ConnMaxIdleTime: 60,
+			Path:            "aigate.db",
+		},
+		Redis: RedisConfig{
+			Addr:         "127.0.0.1:6379",
+			Password:     "",
+			DB:           0,
+			PoolSize:     50,
+			MinIdleConns: 10,
 		},
 		LogLevel: "info",
 		Providers: map[string]ProviderConfig{
@@ -119,5 +159,46 @@ func defaultConfig() *Config {
 				Timeout: 60,
 			},
 		},
+	}
+}
+
+func applyEnvOverrides(cfg *Config) {
+	if v := os.Getenv("AIGATE_SERVER_PORT"); v != "" {
+		cfg.Server.Port = v
+	}
+	if v := os.Getenv("AIGATE_SERVER_MODE"); v != "" {
+		cfg.Server.Mode = v
+	}
+	if v := os.Getenv("AIGATE_DB_DRIVER"); v != "" {
+		cfg.Database.Driver = v
+	}
+	if v := os.Getenv("AIGATE_DB_HOST"); v != "" {
+		cfg.Database.Host = v
+	}
+	if v := os.Getenv("AIGATE_DB_PORT"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			cfg.Database.Port = p
+		}
+	}
+	if v := os.Getenv("AIGATE_DB_USERNAME"); v != "" {
+		cfg.Database.Username = v
+	}
+	if v := os.Getenv("AIGATE_DB_PASSWORD"); v != "" {
+		cfg.Database.Password = v
+	}
+	if v := os.Getenv("AIGATE_DB_DATABASE"); v != "" {
+		cfg.Database.Database = v
+	}
+	if v := os.Getenv("AIGATE_REDIS_ADDR"); v != "" {
+		cfg.Redis.Addr = v
+	}
+	if v := os.Getenv("AIGATE_REDIS_PASSWORD"); v != "" {
+		cfg.Redis.Password = v
+	}
+	if v := os.Getenv("AIGATE_JWT_SECRET"); v != "" {
+		cfg.JWTSecret = v
+	}
+	if v := os.Getenv("AIGATE_LOG_LEVEL"); v != "" {
+		cfg.LogLevel = v
 	}
 }

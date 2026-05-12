@@ -1,0 +1,53 @@
+services:
+  mysql:
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/gcr.io/ml-pipeline/mysql:8.0.26
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: aigate
+      MYSQL_USER: aigate
+      MYSQL_PASSWORD: aigate_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/quay.io/opstree/redis:v7.0.5
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  aigate:
+    build: .
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      AIGATE_SERVER_PORT: "8081"
+      AIGATE_SERVER_MODE: "release"
+      AIGATE_DB_DRIVER: "mysql"
+      AIGATE_DB_HOST: "mysql"
+      AIGATE_DB_PORT: "3306"
+      AIGATE_DB_USERNAME: "aigate"
+      AIGATE_DB_PASSWORD: "aigate_pass"
+      AIGATE_DB_DATABASE: "aigate"
+      AIGATE_REDIS_ADDR: "redis:6379"
+      AIGATE_JWT_SECRET: "aigate-jwt-secret-key-2026"
+      AIGATE_LOG_LEVEL: "info"
+    restart: unless-stopped
+
+volumes:
+  mysql_data:

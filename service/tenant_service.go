@@ -70,12 +70,45 @@ func (s *TenantService) List() ([]model.TenantDetail, error) {
 		return nil, fmt.Errorf("list tenants error: %w", err)
 	}
 
+	if len(tenants) == 0 {
+		return []model.TenantDetail{}, nil
+	}
+
+	// 批量查询各租户的用户数和网关数
+	tenantIDs := make([]string, len(tenants))
+	for i, t := range tenants {
+		tenantIDs[i] = t.ID
+	}
+
+	type countResult struct {
+		TenantID string
+		Count    int64
+	}
+
+	var userCounts []countResult
+	s.db.Model(&model.User{}).Select("tenant_id, COUNT(*) as count").
+		Where("tenant_id IN ?", tenantIDs).Group("tenant_id").Scan(&userCounts)
+
+	var gwCounts []countResult
+	s.db.Model(&model.Gateway{}).Select("tenant_id, COUNT(*) as count").
+		Where("tenant_id IN ?", tenantIDs).Group("tenant_id").Scan(&gwCounts)
+
+	userMap := make(map[string]int64)
+	for _, uc := range userCounts {
+		userMap[uc.TenantID] = uc.Count
+	}
+	gwMap := make(map[string]int64)
+	for _, gc := range gwCounts {
+		gwMap[gc.TenantID] = gc.Count
+	}
+
 	details := make([]model.TenantDetail, len(tenants))
 	for i, t := range tenants {
-		var userCount, gwCount int64
-		s.db.Model(&model.User{}).Where("tenant_id = ?", t.ID).Count(&userCount)
-		s.db.Model(&model.Gateway{}).Where("tenant_id = ?", t.ID).Count(&gwCount)
-		details[i] = model.TenantDetail{Tenant: t, UserCount: userCount, GatewayCount: gwCount}
+		details[i] = model.TenantDetail{
+			Tenant:       t,
+			UserCount:    userMap[t.ID],
+			GatewayCount: gwMap[t.ID],
+		}
 	}
 	return details, nil
 }
@@ -146,24 +179,48 @@ func (s *TenantService) GetUsage(tenantID string) (*model.TenantUsage, error) {
 	s.db.Where("tenant_id = ?", tenantID).Find(&gateways)
 
 	usage := &model.TenantUsage{TenantID: tenant.ID, TenantName: tenant.Name}
+
+	if len(gateways) == 0 {
+		return usage, nil
+	}
+
+	// 批量聚合所有网关的 metrics
+	gwIDs := make([]string, len(gateways))
+	for i, gw := range gateways {
+		gwIDs[i] = gw.ID
+	}
+
+	type metricAgg struct {
+		GatewayID string
+		Tokens    int64
+		Reqs      int64
+		Errs      int64
+		Latency   float64
+	}
+	var aggs []metricAgg
+	s.db.Model(&model.MetricRecord{}).
+		Select("gateway_id, COALESCE(SUM(tokens_used),0) as tokens, COALESCE(SUM(request_count),0) as reqs, COALESCE(SUM(error_count),0) as errs, COALESCE(AVG(avg_latency_ms),0) as latency").
+		Where("gateway_id IN ?", gwIDs).
+		Group("gateway_id").
+		Scan(&aggs)
+
+	aggMap := make(map[string]metricAgg)
+	for _, a := range aggs {
+		aggMap[a.GatewayID] = a
+	}
+
 	for _, gw := range gateways {
-		var rec struct {
-			Tokens, Reqs, Errs int64
-			Latency            float64
-		}
-		s.db.Model(&model.MetricRecord{}).Where("gateway_id = ?", gw.ID).
-			Select("COALESCE(SUM(tokens_used),0) as tokens, COALESCE(SUM(request_count),0) as reqs, COALESCE(SUM(error_count),0) as errs, COALESCE(AVG(avg_latency_ms),0) as latency").
-			Scan(&rec)
+		agg := aggMap[gw.ID]
 		errRate := 0.0
-		if rec.Reqs > 0 {
-			errRate = float64(rec.Errs) / float64(rec.Reqs)
+		if agg.Reqs > 0 {
+			errRate = float64(agg.Errs) / float64(agg.Reqs)
 		}
 		usage.Gateways = append(usage.Gateways, model.GatewayUsage{
 			GatewayID: gw.ID, GatewayName: gw.Name, Provider: gw.Provider, Status: gw.Status,
-			TokensUsed: rec.Tokens, RequestCount: rec.Reqs, AvgLatencyMs: rec.Latency, ErrorRate: errRate,
+			TokensUsed: agg.Tokens, RequestCount: agg.Reqs, AvgLatencyMs: agg.Latency, ErrorRate: errRate,
 		})
-		usage.TotalTokens += rec.Tokens
-		usage.TotalReqs += rec.Reqs
+		usage.TotalTokens += agg.Tokens
+		usage.TotalReqs += agg.Reqs
 	}
 	return usage, nil
 }

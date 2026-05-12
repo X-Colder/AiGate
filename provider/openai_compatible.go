@@ -31,6 +31,12 @@ func NewOpenAICompatibleProvider(providerName string, cfg config.ProviderConfig)
 		cfg:          cfg,
 		client: &http.Client{
 			Timeout: time.Duration(cfg.Timeout) * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 20,
+				MaxConnsPerHost:     50,
+				IdleConnTimeout:     90 * time.Second,
+			},
 		},
 	}
 }

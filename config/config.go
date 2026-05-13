@@ -18,7 +18,6 @@ type Config struct {
 	Providers map[string]ProviderConfig `yaml:"providers"`
 }
 
-// DatabaseConfig 数据库配置，支持 MySQL 和 SQLite 双驱动
 type DatabaseConfig struct {
 	Driver          string `yaml:"driver"`
 	Host            string `yaml:"host"`
@@ -30,7 +29,7 @@ type DatabaseConfig struct {
 	MaxIdleConns    int    `yaml:"max_idle_conns"`
 	ConnMaxLifetime int    `yaml:"conn_max_lifetime"`
 	ConnMaxIdleTime int    `yaml:"conn_max_idle_time"`
-	Path            string `yaml:"path"` // SQLite 兼容
+	Path            string `yaml:"path"`
 }
 
 // RedisConfig Redis 连接配置
@@ -101,7 +100,7 @@ func defaultConfig() *Config {
 			Mode: "debug",
 		},
 		Database: DatabaseConfig{
-			Driver:          "sqlite",
+			Driver:          "mysql",
 			Host:            "127.0.0.1",
 			Port:            3306,
 			Username:        "aigate",
@@ -111,7 +110,6 @@ func defaultConfig() *Config {
 			MaxIdleConns:    10,
 			ConnMaxLifetime: 300,
 			ConnMaxIdleTime: 60,
-			Path:            "aigate.db",
 		},
 		Redis: RedisConfig{
 			Addr:         "127.0.0.1:6379",

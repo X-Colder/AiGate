@@ -18,8 +18,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.LogLevel != "info" {
 		t.Errorf("expected default log level info, got %s", cfg.LogLevel)
 	}
-	if cfg.Database.Path != "aigate.db" {
-		t.Errorf("expected default db path aigate.db, got %s", cfg.Database.Path)
+	if cfg.Database.Driver != "mysql" {
+		t.Errorf("expected default db driver mysql, got %s", cfg.Database.Driver)
 	}
 	if len(cfg.Providers) != 6 {
 		t.Errorf("expected 6 default providers, got %d", len(cfg.Providers))

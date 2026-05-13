@@ -8,7 +8,6 @@ import (
 	"github.com/aigate/model"
 	"github.com/aigate/pkg/logger"
 	"gorm.io/driver/mysql"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
@@ -20,21 +19,8 @@ const DefaultAdminRoleID = "00000000-0000-0000-0000-000000000010"
 const DefaultUserRoleID = "00000000-0000-0000-0000-000000000011"
 
 func InitDB(cfg *config.DatabaseConfig) error {
-	var dialector gorm.Dialector
-
-	switch cfg.Driver {
-	case "mysql":
-		dsn := buildMySQLDSN(cfg)
-		dialector = mysql.Open(dsn)
-	case "sqlite":
-		path := cfg.Path
-		if path == "" {
-			path = "aigate.db"
-		}
-		dialector = sqlite.Open(path)
-	default:
-		return fmt.Errorf("unsupported database driver: %s", cfg.Driver)
-	}
+	dsn := buildMySQLDSN(cfg)
+	dialector := mysql.Open(dsn)
 
 	var err error
 	DB, err = gorm.Open(dialector, &gorm.Config{

@@ -20,7 +20,7 @@ AiGate 是一个多租户 AI 网关服务，统一代理 OpenAI、Anthropic、De
 │                Provider 层 (可插拔)                        │
 │  OpenAI │ Anthropic │ DeepSeek │ 豆包 │ Qwen │ Kimi      │
 ├──────────────────────────────────────────────────────────┤
-│  Store: SQLite + GORM 自动迁移                            │
+│  Store: MySQL + GORM 自动迁移                             │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -39,7 +39,7 @@ AiGate 是一个多租户 AI 网关服务，统一代理 OpenAI、Anthropic、De
 | 层级 | 技术 |
 |------|------|
 | 后端框架 | Go + Gin |
-| 数据库 | SQLite + GORM |
+| 数据库 | MySQL + GORM |
 | 认证 | JWT (golang-jwt/v5) |
 | 前端 | Vue 3 + Vite + Element Plus + ECharts |
 | HTTP 客户端 | net/http (按提供者独立超时) |
@@ -49,6 +49,7 @@ AiGate 是一个多租户 AI 网关服务，统一代理 OpenAI、Anthropic、De
 ### 环境要求
 
 - Go 1.21+
+- MySQL 8.0+
 - Node.js 18+（构建前端）
 
 ### 1. 克隆项目
@@ -66,12 +67,20 @@ cd AiGate
 cp config.yaml.example config.yaml
 ```
 
-在 `config.yaml` 中填入 AI 提供者的 API Key 并设置 `enabled: true`：
+在 `config.yaml` 中配置 MySQL 连接信息和 AI 提供者的 API Key：
 
 ```yaml
 server:
   port: "8081"
   mode: "debug"
+
+database:
+  driver: "mysql"
+  host: "127.0.0.1"
+  port: 3306
+  username: "aigate"
+  password: "aigate_pass"
+  database: "aigate"
 
 jwt_secret: "your-secret-key"
 
@@ -84,7 +93,7 @@ providers:
     timeout: 30
 ```
 
-也可通过环境变量 `AIGATE_CONFIG` 指定配置文件路径。
+也可通过环境变量覆盖数据库配置：`AIGATE_DB_HOST`、`AIGATE_DB_PORT`、`AIGATE_DB_USERNAME`、`AIGATE_DB_PASSWORD`、`AIGATE_DB_DATABASE`。
 
 ### 3. 构建前端
 
@@ -95,13 +104,26 @@ npm run build
 cd ..
 ```
 
-### 4. 启动服务
+### 4. 准备数据库
+
+确保 MySQL 服务已启动，并创建数据库：
+
+```sql
+CREATE DATABASE IF NOT EXISTS aigate DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'aigate'@'%' IDENTIFIED BY 'aigate_pass';
+GRANT ALL PRIVILEGES ON aigate.* TO 'aigate'@'%';
+FLUSH PRIVILEGES;
+```
+
+也可直接使用 Docker Compose 启动 MySQL（见下方 Docker 部署）。
+
+### 5. 启动服务
 
 ```bash
 go run main.go
 ```
 
-服务默认监听 `http://localhost:8081`，首次启动自动创建 SQLite 数据库并初始化默认租户和管理员账户。
+服务默认监听 `http://localhost:8081`，首次启动自动创建数据表并初始化默认租户和管理员账户。
 
 ### 默认管理员
 
@@ -185,6 +207,16 @@ AiGate/
 | Kimi (月之暗面) | `kimi` | OpenAI 兼容 | moonshot-v1-8k |
 
 新增提供者只需实现 `Provider` 接口并注册到 `Registry`。兼容 OpenAI 协议的服务可直接复用 `OpenAICompatibleProvider`。
+
+## Docker 部署
+
+项目提供 `docker-compose.yml`，一键启动 MySQL + Redis + AiGate：
+
+```bash
+docker-compose up -d
+```
+
+服务启动后访问 `http://localhost:8081`。
 
 ## 运行测试
 

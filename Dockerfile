@@ -8,14 +8,13 @@ RUN npm run build
 
 ## ---- Backend Build ----
 FROM golang:alpine AS backend-builder
-RUN apk add --no-cache gcc musl-dev
 WORKDIR /app
 COPY go.mod go.sum ./
 ENV GOPROXY=https://goproxy.cn,direct
 RUN go mod download
 COPY . .
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
-RUN CGO_ENABLED=1 go build -o /app/aigate .
+RUN CGO_ENABLED=0 go build -o /app/aigate .
 
 ## ---- Runtime ----
 FROM alpine:3.20

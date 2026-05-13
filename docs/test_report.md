@@ -3,7 +3,7 @@
 > 生成时间：2026-04-15  
 > Go 版本：1.25.x  
 > 测试框架：go test  
-> 数据库：SQLite (内存模式用于测试)
+> 数据库：MySQL (生产) / SQLite 内存模式 (测试)
 
 ---
 
@@ -24,7 +24,7 @@
 
 | 测试用例 | 说明 | 结果 |
 |----------|------|------|
-| TestDefaultConfig | 验证默认配置（含 Database.Path） | PASS |
+| TestDefaultConfig | 验证默认配置（含 Database.Driver） | PASS |
 | TestGetConfigPath_Default | 默认配置文件路径 | PASS |
 | TestGetConfigPath_Env | 环境变量覆盖路径 | PASS |
 | TestLoad_FileNotExist | 文件不存在使用默认配置 | PASS |
@@ -122,7 +122,7 @@
 
 ## 二、API 集成测试（路由层端到端）
 
-通过 `httptest` + 内存 SQLite 对完整链路进行验证。
+通过 `httptest` + 内存 SQLite 对完整链路进行验证（生产环境使用 MySQL）。
 
 ### 认证接口
 

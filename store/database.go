@@ -17,6 +17,7 @@ var DB *gorm.DB
 const DefaultTenantID = "00000000-0000-0000-0000-000000000001"
 const DefaultAdminRoleID = "00000000-0000-0000-0000-000000000010"
 const DefaultUserRoleID = "00000000-0000-0000-0000-000000000011"
+const DefaultDeveloperRoleID = "00000000-0000-0000-0000-000000000012"
 
 func InitDB(cfg *config.DatabaseConfig) error {
 	dsn := buildMySQLDSN(cfg)
@@ -64,6 +65,11 @@ func InitDB(cfg *config.DatabaseConfig) error {
 		&model.Gateway{},
 		&model.GatewayPolicy{},
 		&model.MetricRecord{},
+		&model.ModelCatalog{},
+		&model.APIKey{},
+		&model.UserBalance{},
+		&model.BalanceTransaction{},
+		&model.UsageRecord{},
 	); err != nil {
 		return err
 	}
@@ -122,8 +128,9 @@ func InitDefaultTenant() error {
 
 func initDefaultRoles() {
 	roles := []model.Role{
-		{ID: DefaultAdminRoleID, Name: "超级管理员", Description: "全部权限", TenantAccess: true, GatewayAccess: true, MonitorAccess: true, IsSystem: true},
-		{ID: DefaultUserRoleID, Name: "普通用户", Description: "网关管理和监控", TenantAccess: false, GatewayAccess: true, MonitorAccess: true, IsSystem: true},
+		{ID: DefaultAdminRoleID, Name: "超级管理员", Description: "全部权限", TenantAccess: true, GatewayAccess: true, MonitorAccess: true, APIAccess: true, IsSystem: true},
+		{ID: DefaultUserRoleID, Name: "普通用户", Description: "网关管理和监控", TenantAccess: false, GatewayAccess: true, MonitorAccess: true, APIAccess: false, IsSystem: true},
+		{ID: DefaultDeveloperRoleID, Name: "开发者", Description: "API调用权限", TenantAccess: false, GatewayAccess: false, MonitorAccess: false, APIAccess: true, IsSystem: true},
 	}
 	for _, r := range roles {
 		var count int64

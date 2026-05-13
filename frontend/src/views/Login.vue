@@ -58,7 +58,11 @@ const handleLogin = async () => {
             localStorage.setItem('permissions', JSON.stringify(res.data.permissions))
         }
         ElMessage.success('登录成功')
-        router.push('/')
+        if (res.data.permissions?.api_access && !res.data.permissions?.tenant_access && !res.data.permissions?.gateway_access) {
+            router.push('/developer')
+        } else {
+            router.push('/')
+        }
     } catch (e) {
         // 错误已在拦截器处理
     } finally {

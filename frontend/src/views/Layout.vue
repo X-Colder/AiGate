@@ -37,6 +37,18 @@
                     </el-icon>
                     <span>监控面板</span>
                 </el-menu-item>
+                <el-menu-item index="/models" v-if="permissions.tenant_access">
+                    <el-icon>
+                        <Cpu />
+                    </el-icon>
+                    <span>模型管理</span>
+                </el-menu-item>
+                <el-menu-item index="/billing" v-if="permissions.tenant_access">
+                    <el-icon>
+                        <Wallet />
+                    </el-icon>
+                    <span>计费管理</span>
+                </el-menu-item>
             </el-menu>
         </el-aside>
         <!-- 主区域 -->

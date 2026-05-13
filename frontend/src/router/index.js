@@ -41,6 +41,62 @@ const routes = [
                 name: 'Monitor',
                 component: () => import('../views/Monitor.vue'),
                 meta: { permission: 'monitor_access' }
+            },
+            {
+                path: 'models',
+                name: 'Models',
+                component: () => import('../views/Models.vue'),
+                meta: { permission: 'tenant_access' }
+            },
+            {
+                path: 'billing',
+                name: 'Billing',
+                component: () => import('../views/Billing.vue'),
+                meta: { permission: 'tenant_access' }
+            }
+        ]
+    },
+    {
+        path: '/developer',
+        name: 'DevLayout',
+        component: () => import('../views/developer/DevLayout.vue'),
+        redirect: '/developer/dashboard',
+        children: [
+            {
+                path: 'dashboard',
+                name: 'DevDashboard',
+                component: () => import('../views/developer/Dashboard.vue'),
+                meta: { permission: 'api_access' }
+            },
+            {
+                path: 'apikeys',
+                name: 'DevAPIKeys',
+                component: () => import('../views/developer/APIKeys.vue'),
+                meta: { permission: 'api_access' }
+            },
+            {
+                path: 'models',
+                name: 'DevModels',
+                component: () => import('../views/developer/ModelList.vue'),
+                meta: { permission: 'api_access' }
+            },
+            {
+                path: 'models/:id/doc',
+                name: 'DevModelDoc',
+                component: () => import('../views/developer/ModelDoc.vue'),
+                meta: { permission: 'api_access' }
+            },
+            {
+                path: 'usage',
+                name: 'DevUsage',
+                component: () => import('../views/developer/Usage.vue'),
+                meta: { permission: 'api_access' }
+            },
+            {
+                path: 'balance',
+                name: 'DevBalance',
+                component: () => import('../views/developer/Balance.vue'),
+                meta: { permission: 'api_access' }
             }
         ]
     }
@@ -51,7 +107,6 @@ const router = createRouter({
     routes
 })
 
-// 路由守卫：按 RBAC permissions 控制页面访问
 router.beforeEach((to, from, next) => {
     const token = localStorage.getItem('token')
     if (to.path !== '/login' && !token) {
@@ -63,8 +118,11 @@ router.beforeEach((to, from, next) => {
         try {
             const permissions = JSON.parse(localStorage.getItem('permissions') || '{}')
             if (!permissions[to.meta.permission]) {
-                // 无权限则跳转到第一个有权限的页面
-                next('/gateways')
+                if (permissions.api_access) {
+                    next('/developer/dashboard')
+                } else {
+                    next('/gateways')
+                }
                 return
             }
         } catch {

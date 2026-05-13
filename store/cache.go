@@ -21,6 +21,7 @@ type RolePermissions struct {
 	TenantAccess  bool `json:"tenant_access"`
 	GatewayAccess bool `json:"gateway_access"`
 	MonitorAccess bool `json:"monitor_access"`
+	APIAccess     bool `json:"api_access"`
 }
 
 func CacheRolePermissions(ctx context.Context, roleID string, perms *RolePermissions) error {

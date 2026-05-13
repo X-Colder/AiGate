@@ -60,6 +60,17 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 	userService := service.NewUserService(db)
 	userHandler := handler.NewUserHandler(userService)
 
+	// C端服务
+	modelService := service.NewModelService(db)
+	billingService := service.NewBillingService(db)
+	apikeyService := service.NewAPIKeyService(db)
+	usageService := service.NewUsageService(db)
+
+	modelHandler := handler.NewModelHandler(modelService, billingService)
+	apikeyHandler := handler.NewAPIKeyHandler(apikeyService)
+	developerHandler := handler.NewDeveloperHandler(modelService, billingService, usageService)
+	inferenceHandler := handler.NewInferenceHandler(modelService, billingService, usageService, apikeyService, registry)
+
 	// ===== 前端静态文件服务 =====
 	r.Static("/assets", "./frontend/dist/assets")
 	r.StaticFile("/", "./frontend/dist/index.html")
@@ -159,7 +170,44 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 			admin.GET("/users/:id", userHandler.GetByID)
 			admin.PUT("/users/:id", userHandler.Update)
 			admin.DELETE("/users/:id", userHandler.Delete)
+
+			// 模型管理
+			admin.GET("/models", modelHandler.List)
+			admin.POST("/models", modelHandler.Create)
+			admin.GET("/models/:id", modelHandler.GetByID)
+			admin.PUT("/models/:id", modelHandler.Update)
+			admin.DELETE("/models/:id", modelHandler.Delete)
+			admin.PUT("/models/:id/doc", modelHandler.UpdateDoc)
+
+			// 计费管理
+			admin.GET("/billing/users", modelHandler.ListUserBalances)
+			admin.POST("/billing/recharge", modelHandler.Recharge)
 		}
+
+		// C端开发者接口（需认证）
+		developer := api.Group("/developer")
+		developer.Use(middleware.Auth(db))
+		{
+			developer.POST("/apikeys", apikeyHandler.Create)
+			developer.GET("/apikeys", apikeyHandler.List)
+			developer.DELETE("/apikeys/:id", apikeyHandler.Revoke)
+
+			developer.GET("/models", developerHandler.ListModels)
+			developer.GET("/models/:id/doc", developerHandler.GetModelDoc)
+			developer.GET("/balance", developerHandler.GetBalance)
+			developer.GET("/transactions", developerHandler.GetTransactions)
+			developer.GET("/usage/summary", developerHandler.GetUsageSummary)
+			developer.GET("/usage/trend", developerHandler.GetUsageTrend)
+			developer.GET("/usage/records", developerHandler.GetUsageRecords)
+		}
+	}
+
+	// ===== OpenAI 兼容推理接口 (API Key 认证) =====
+	v1Open := r.Group("/v1")
+	v1Open.Use(middleware.APIKeyAuth(db))
+	{
+		v1Open.POST("/chat/completions", inferenceHandler.ChatCompletion)
+		v1Open.GET("/models", inferenceHandler.ListModels)
 	}
 
 	return r

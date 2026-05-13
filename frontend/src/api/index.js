@@ -80,4 +80,34 @@ export const userApi = {
     remove: (id) => api.delete(`/admin/users/${id}`)
 }
 
+// 模型管理（管理员专用）
+export const modelApi = {
+    list: () => api.get('/admin/models'),
+    getById: (id) => api.get(`/admin/models/${id}`),
+    create: (data) => api.post('/admin/models', data),
+    update: (id, data) => api.put(`/admin/models/${id}`, data),
+    remove: (id) => api.delete(`/admin/models/${id}`),
+    updateDoc: (id, data) => api.put(`/admin/models/${id}/doc`, data)
+}
+
+// 计费管理（管理员专用）
+export const billingApi = {
+    listUsers: () => api.get('/admin/billing/users'),
+    recharge: (data) => api.post('/admin/billing/recharge', data)
+}
+
+// 开发者接口
+export const developerApi = {
+    listModels: () => api.get('/developer/models'),
+    getModelDoc: (id) => api.get(`/developer/models/${id}/doc`),
+    createKey: (data) => api.post('/developer/apikeys', data),
+    listKeys: () => api.get('/developer/apikeys'),
+    revokeKey: (id) => api.delete(`/developer/apikeys/${id}`),
+    getBalance: () => api.get('/developer/balance'),
+    getTransactions: (params) => api.get('/developer/transactions', { params }),
+    getUsageSummary: (params) => api.get('/developer/usage/summary', { params }),
+    getUsageTrend: (params) => api.get('/developer/usage/trend', { params }),
+    getUsageRecords: (params) => api.get('/developer/usage/records', { params })
+}
+
 export default api

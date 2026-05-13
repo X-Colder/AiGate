@@ -38,6 +38,7 @@ type Role struct {
 	TenantAccess  bool      `json:"tenant_access" gorm:"default:false"`  // 租户管理权限
 	GatewayAccess bool      `json:"gateway_access" gorm:"default:false"` // 网关管理权限
 	MonitorAccess bool      `json:"monitor_access" gorm:"default:false"` // 监控面板权限
+	APIAccess     bool      `json:"api_access" gorm:"default:false"`     // API开发者权限
 	IsSystem      bool      `json:"is_system" gorm:"default:false"`      // 系统内置角色不可删
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
@@ -94,9 +95,98 @@ type MetricRecord struct {
 }
 
 // TableName 自定义表名
-func (Tenant) TableName() string        { return "tenants" }
-func (User) TableName() string          { return "users" }
-func (Role) TableName() string          { return "roles" }
-func (Gateway) TableName() string       { return "gateways" }
-func (GatewayPolicy) TableName() string { return "gateway_policies" }
-func (MetricRecord) TableName() string  { return "metric_records" }
+func (Tenant) TableName() string              { return "tenants" }
+func (User) TableName() string                { return "users" }
+func (Role) TableName() string                { return "roles" }
+func (Gateway) TableName() string             { return "gateways" }
+func (GatewayPolicy) TableName() string       { return "gateway_policies" }
+func (MetricRecord) TableName() string        { return "metric_records" }
+func (ModelCatalog) TableName() string        { return "model_catalogs" }
+func (APIKey) TableName() string              { return "api_keys" }
+func (UserBalance) TableName() string         { return "user_balances" }
+func (BalanceTransaction) TableName() string  { return "balance_transactions" }
+func (UsageRecord) TableName() string         { return "usage_records" }
+
+// ModelCatalog 模型目录，管理员配置可用模型和定价
+type ModelCatalog struct {
+	ID               string    `json:"id" gorm:"primaryKey;size:36"`
+	Name             string    `json:"name" gorm:"size:100;not null;uniqueIndex"`
+	Provider         string    `json:"provider" gorm:"size:50;not null;index"`
+	ModelID          string    `json:"model_id" gorm:"size:100;not null"`
+	Description      string    `json:"description" gorm:"size:500"`
+	BillingMode      string    `json:"billing_mode" gorm:"size:50;default:prepaid"`
+	InputPricePer1K  float64   `json:"input_price_per_1k" gorm:"default:0"`
+	OutputPricePer1K float64   `json:"output_price_per_1k" gorm:"default:0"`
+	RequestPrice     float64   `json:"request_price" gorm:"default:0"`
+	FreeQuota        int64     `json:"free_quota" gorm:"default:0"`
+	MonthlyQuota     int64     `json:"monthly_quota" gorm:"default:0"`
+	MaxContextLength int       `json:"max_context_length" gorm:"default:4096"`
+	Status           int       `json:"status" gorm:"default:1"`
+	DocContent       string    `json:"doc_content,omitempty" gorm:"type:text"`
+	SortOrder        int       `json:"sort_order" gorm:"default:0"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+// APIKey 开发者 API 密钥
+type APIKey struct {
+	ID           string     `json:"id" gorm:"primaryKey;size:36"`
+	UserID       string     `json:"user_id" gorm:"size:36;not null;index"`
+	TenantID     string     `json:"tenant_id" gorm:"size:36;not null;index"`
+	Name         string     `json:"name" gorm:"size:100;not null"`
+	KeyHash      string     `json:"-" gorm:"size:64;not null;uniqueIndex"`
+	KeyPrefix    string     `json:"key_prefix" gorm:"size:16"`
+	RateLimitQPM int        `json:"rate_limit_qpm" gorm:"default:60"`
+	Models       string     `json:"models" gorm:"size:500"`
+	Status       int        `json:"status" gorm:"default:1"`
+	LastUsedAt   *time.Time `json:"last_used_at"`
+	ExpiresAt    *time.Time `json:"expires_at"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
+// UserBalance 用户钱包/余额
+type UserBalance struct {
+	ID             string    `json:"id" gorm:"primaryKey;size:36"`
+	UserID         string    `json:"user_id" gorm:"size:36;not null;uniqueIndex"`
+	TenantID       string    `json:"tenant_id" gorm:"size:36;not null;index"`
+	Balance        float64   `json:"balance" gorm:"default:0"`
+	FreeBalance    float64   `json:"free_balance" gorm:"default:0"`
+	TotalRecharged float64   `json:"total_recharged" gorm:"default:0"`
+	TotalConsumed  float64   `json:"total_consumed" gorm:"default:0"`
+	MonthlyUsed    int64     `json:"monthly_used" gorm:"default:0"`
+	MonthlyResetAt time.Time `json:"monthly_reset_at"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+// BalanceTransaction 余额变动流水
+type BalanceTransaction struct {
+	ID          uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	UserID      string    `json:"user_id" gorm:"size:36;not null;index"`
+	TenantID    string    `json:"tenant_id" gorm:"size:36;not null;index"`
+	Type        string    `json:"type" gorm:"size:20;not null"`
+	Amount      float64   `json:"amount"`
+	Balance     float64   `json:"balance"`
+	RelatedID   string    `json:"related_id" gorm:"size:36"`
+	Description string    `json:"description" gorm:"size:200"`
+	CreatedAt   time.Time `json:"created_at" gorm:"index"`
+}
+
+// UsageRecord C端调用记录
+type UsageRecord struct {
+	ID             uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	UserID         string    `json:"user_id" gorm:"size:36;not null;index"`
+	TenantID       string    `json:"tenant_id" gorm:"size:36;not null;index"`
+	APIKeyID       string    `json:"api_key_id" gorm:"size:36;not null;index"`
+	ModelCatalogID string    `json:"model_catalog_id" gorm:"size:36;index"`
+	ModelName      string    `json:"model_name" gorm:"size:100"`
+	Provider       string    `json:"provider" gorm:"size:50"`
+	InputTokens    int64     `json:"input_tokens" gorm:"default:0"`
+	OutputTokens   int64     `json:"output_tokens" gorm:"default:0"`
+	TotalTokens    int64     `json:"total_tokens" gorm:"default:0"`
+	Cost           float64   `json:"cost" gorm:"default:0"`
+	LatencyMs      int64     `json:"latency_ms" gorm:"default:0"`
+	StatusCode     int       `json:"status_code" gorm:"default:200"`
+	CreatedAt      time.Time `json:"created_at" gorm:"index:idx_usage_time"`
+}

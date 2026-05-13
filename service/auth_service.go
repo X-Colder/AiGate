@@ -61,7 +61,7 @@ func (s *AuthService) Register(req *model.RegisterRequest) (*model.LoginResponse
 		Username:    user.Username,
 		TenantID:    user.TenantID,
 		Role:        user.Role,
-		Permissions: model.Permissions{TenantAccess: false, GatewayAccess: true, MonitorAccess: true},
+		Permissions: model.Permissions{TenantAccess: false, GatewayAccess: true, MonitorAccess: true, APIAccess: true},
 	}, nil
 }
 
@@ -84,12 +84,12 @@ func (s *AuthService) Login(req *model.LoginRequest) (*model.LoginResponse, erro
 			permissions.TenantAccess = role.TenantAccess
 			permissions.GatewayAccess = role.GatewayAccess
 			permissions.MonitorAccess = role.MonitorAccess
+			permissions.APIAccess = role.APIAccess
 		}
 	} else if user.Role == "admin" {
-		// 兼容旧用户无 RoleID 的情况
-		permissions = model.Permissions{TenantAccess: true, GatewayAccess: true, MonitorAccess: true}
+		permissions = model.Permissions{TenantAccess: true, GatewayAccess: true, MonitorAccess: true, APIAccess: true}
 	} else {
-		permissions = model.Permissions{TenantAccess: false, GatewayAccess: true, MonitorAccess: true}
+		permissions = model.Permissions{TenantAccess: false, GatewayAccess: true, MonitorAccess: true, APIAccess: false}
 	}
 
 	token, err := auth.GenerateToken(user.ID, user.TenantID, user.Username, user.Role)

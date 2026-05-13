@@ -58,6 +58,7 @@ func loadPermissions(c *gin.Context, db *gorm.DB, claims *auth.Claims) {
 			c.Set("tenant_access", true)
 			c.Set("gateway_access", true)
 			c.Set("monitor_access", true)
+			c.Set("api_access", true)
 		}
 		return
 	}
@@ -68,6 +69,7 @@ func loadPermissions(c *gin.Context, db *gorm.DB, claims *auth.Claims) {
 		c.Set("tenant_access", cached.TenantAccess)
 		c.Set("gateway_access", cached.GatewayAccess)
 		c.Set("monitor_access", cached.MonitorAccess)
+		c.Set("api_access", cached.APIAccess)
 		return
 	}
 
@@ -77,12 +79,14 @@ func loadPermissions(c *gin.Context, db *gorm.DB, claims *auth.Claims) {
 		c.Set("tenant_access", role.TenantAccess)
 		c.Set("gateway_access", role.GatewayAccess)
 		c.Set("monitor_access", role.MonitorAccess)
+		c.Set("api_access", role.APIAccess)
 
 		// 写回缓存
 		_ = store.CacheRolePermissions(c.Request.Context(), user.RoleID, &store.RolePermissions{
 			TenantAccess:  role.TenantAccess,
 			GatewayAccess: role.GatewayAccess,
 			MonitorAccess: role.MonitorAccess,
+			APIAccess:     role.APIAccess,
 		})
 	}
 }

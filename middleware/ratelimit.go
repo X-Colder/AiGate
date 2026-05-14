@@ -63,22 +63,22 @@ func RateLimit(rl *RateLimiter) gin.HandlerFunc {
 			return
 		}
 
-		tenantID, _ := c.Get("tenant_id")
-		if tenantID == nil {
+		userID := c.GetString("user_id")
+		if userID == "" {
 			c.Next()
 			return
 		}
 
-		// 查找该租户下启用了限流的网关
+		// 查找启用了限流的网关（网关为全局资源）
 		var policies []struct {
-			GatewayID    string
+			GatewayID      string
 			RateLimitQPS   int
 			RateLimitBurst int
 		}
 		rl.db.Model(&model.GatewayPolicy{}).
 			Select("gateway_policies.gateway_id, gateway_policies.rate_limit_qps, gateway_policies.rate_limit_burst").
 			Joins("JOIN gateways ON gateways.id = gateway_policies.gateway_id").
-			Where("gateways.tenant_id = ? AND gateway_policies.rate_limit_enabled = ?", tenantID, true).
+			Where("gateways.status = 1 AND gateway_policies.rate_limit_enabled = ?", true).
 			Scan(&policies)
 
 		if len(policies) == 0 {
@@ -86,7 +86,7 @@ func RateLimit(rl *RateLimiter) gin.HandlerFunc {
 			return
 		}
 
-		// 使用该租户最严格的限流策略
+		// 使用最严格的限流策略
 		qps := policies[0].RateLimitQPS
 		burst := policies[0].RateLimitBurst
 		for _, p := range policies[1:] {
@@ -96,7 +96,7 @@ func RateLimit(rl *RateLimiter) gin.HandlerFunc {
 			}
 		}
 
-		key := fmt.Sprintf("ratelimit:%s", tenantID)
+		key := fmt.Sprintf("ratelimit:%s", userID)
 		allowed, err := rl.Allow(c.Request.Context(), key, qps, burst)
 		if err != nil {
 			c.Next()

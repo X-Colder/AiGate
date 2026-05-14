@@ -4,20 +4,17 @@ import "time"
 
 // ============ 认证相关 DTO ============
 
-// LoginRequest 登录请求
 type LoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
-// RegisterRequest 注册请求
 type RegisterRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=50"`
 	Password string `json:"password" binding:"required,min=6,max=50"`
-	TenantID string `json:"tenant_id" binding:"required"`
+	Phone    string `json:"phone"`
 }
 
-// LoginResponse 登录响应
 type LoginResponse struct {
 	Token       string      `json:"token"`
 	UserID      string      `json:"user_id"`
@@ -27,26 +24,58 @@ type LoginResponse struct {
 	Permissions Permissions `json:"permissions"`
 }
 
-// Permissions 模块访问权限
 type Permissions struct {
 	TenantAccess  bool `json:"tenant_access"`
 	GatewayAccess bool `json:"gateway_access"`
 	MonitorAccess bool `json:"monitor_access"`
+	ModelAccess   bool `json:"model_access"`
 	APIAccess     bool `json:"api_access"`
+	TeamAccess    bool `json:"team_access"`
 }
 
-// ============ 租户管理 DTO ============
+// ============ 团队管理 DTO ============
 
-// CreateTenantRequest 创建租户请求
+type CreateTeamRequest struct {
+	Name  string `json:"name" binding:"required,min=2,max=100"`
+	Email string `json:"email"`
+	Phone string `json:"phone"`
+}
+
+type InviteMemberRequest struct {
+	Phone string `json:"phone" binding:"required"`
+}
+
+type InvitationResponse struct {
+	ID        string    `json:"id"`
+	TenantID  string    `json:"tenant_id"`
+	TeamName  string    `json:"team_name"`
+	InviterID string    `json:"inviter_id"`
+	Inviter   string    `json:"inviter"`
+	Phone     string    `json:"phone"`
+	Status    int       `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type TeamMemberDetail struct {
+	UserID    string  `json:"user_id"`
+	Username  string  `json:"username"`
+	Phone     string  `json:"phone"`
+	Role      string  `json:"role"`
+	Status    int     `json:"status"`
+	UsedQuota float64 `json:"used_quota"`
+	JoinedAt  string  `json:"joined_at"`
+}
+
+// ============ 租户管理 DTO (admin) ============
+
 type CreateTenantRequest struct {
 	Name      string `json:"name" binding:"required,min=2,max=100"`
-	AdminUser string `json:"admin_user" binding:"required,min=3,max=50"` // 管理员用户名
+	AdminUser string `json:"admin_user" binding:"required,min=3,max=50"`
 	Password  string `json:"password" binding:"required,min=6,max=50"`
 	Email     string `json:"email"`
 	Phone     string `json:"phone"`
 }
 
-// UpdateTenantRequest 更新租户请求
 type UpdateTenantRequest struct {
 	Name   string `json:"name"`
 	Email  string `json:"email"`
@@ -54,14 +83,12 @@ type UpdateTenantRequest struct {
 	Status *int   `json:"status"`
 }
 
-// TenantDetail 租户详情（含统计数据，管理员视图）
 type TenantDetail struct {
 	Tenant
 	UserCount    int64 `json:"user_count"`
 	GatewayCount int64 `json:"gateway_count"`
 }
 
-// TenantUsage 租户使用详情
 type TenantUsage struct {
 	TenantID    string         `json:"tenant_id"`
 	TenantName  string         `json:"tenant_name"`
@@ -70,7 +97,6 @@ type TenantUsage struct {
 	TotalReqs   int64          `json:"total_requests"`
 }
 
-// GatewayUsage 单个网关使用数据
 type GatewayUsage struct {
 	GatewayID    string  `json:"gateway_id"`
 	GatewayName  string  `json:"gateway_name"`
@@ -84,28 +110,23 @@ type GatewayUsage struct {
 
 // ============ 网关相关 DTO ============
 
-// CreateGatewayRequest 创建网关请求
 type CreateGatewayRequest struct {
 	Name     string `json:"name" binding:"required"`
 	Provider string `json:"provider" binding:"required"`
 	BaseURL  string `json:"base_url"`
 	APIKey   string `json:"api_key"`
-	Model    string `json:"model"`
 	Timeout  int    `json:"timeout"`
 }
 
-// UpdateGatewayRequest 更新网关请求
 type UpdateGatewayRequest struct {
 	Name     string `json:"name"`
 	Provider string `json:"provider"`
 	BaseURL  string `json:"base_url"`
 	APIKey   string `json:"api_key"`
-	Model    string `json:"model"`
 	Timeout  int    `json:"timeout"`
-	Status   *int   `json:"status"` // 指针类型以区分零值
+	Status   *int   `json:"status"`
 }
 
-// UpdatePolicyRequest 更新网关策略请求
 type UpdatePolicyRequest struct {
 	RateLimitEnabled        *bool    `json:"rate_limit_enabled"`
 	RateLimitQPS            *int     `json:"rate_limit_qps"`
@@ -115,21 +136,18 @@ type UpdatePolicyRequest struct {
 	CircuitBreakerTimeout   *int     `json:"circuit_breaker_timeout"`
 	CircuitBreakerMinReqs   *int     `json:"circuit_breaker_min_reqs"`
 	FallbackEnabled         *bool    `json:"fallback_enabled"`
-	FallbackProvider        *string  `json:"fallback_provider"`
-	FallbackModel           *string  `json:"fallback_model"`
+	FallbackGatewayID       *string  `json:"fallback_gateway_id"`
 }
 
 // ============ 监控相关 DTO ============
 
-// MetricQuery 监控数据查询参数
 type MetricQuery struct {
 	GatewayID string `form:"gateway_id"`
-	TenantID  string `form:"tenant_id"`                     // admin 按租户筛选
-	StartDate string `form:"start_date" binding:"required"` // 格式: 2006-01-02
-	EndDate   string `form:"end_date" binding:"required"`   // 格式: 2006-01-02
+	TenantID  string `form:"tenant_id"`
+	StartDate string `form:"start_date" binding:"required"`
+	EndDate   string `form:"end_date" binding:"required"`
 }
 
-// MetricSummary 监控汇总数据
 type MetricSummary struct {
 	TotalRequests int64   `json:"total_requests"`
 	TotalTokens   int64   `json:"total_tokens"`
@@ -141,25 +159,28 @@ type MetricSummary struct {
 
 // ============ RBAC 角色管理 DTO ============
 
-// CreateRoleRequest 创建角色请求
 type CreateRoleRequest struct {
 	Name          string `json:"name" binding:"required,min=2,max=50"`
 	Description   string `json:"description"`
 	TenantAccess  bool   `json:"tenant_access"`
 	GatewayAccess bool   `json:"gateway_access"`
 	MonitorAccess bool   `json:"monitor_access"`
+	ModelAccess   bool   `json:"model_access"`
+	APIAccess     bool   `json:"api_access"`
+	TeamAccess    bool   `json:"team_access"`
 }
 
-// UpdateRoleRequest 更新角色请求
 type UpdateRoleRequest struct {
 	Name          *string `json:"name"`
 	Description   *string `json:"description"`
 	TenantAccess  *bool   `json:"tenant_access"`
 	GatewayAccess *bool   `json:"gateway_access"`
 	MonitorAccess *bool   `json:"monitor_access"`
+	ModelAccess   *bool   `json:"model_access"`
+	APIAccess     *bool   `json:"api_access"`
+	TeamAccess    *bool   `json:"team_access"`
 }
 
-// RoleDetail 角色详情（含用户数）
 type RoleDetail struct {
 	Role
 	UserCount int64 `json:"user_count"`
@@ -167,27 +188,26 @@ type RoleDetail struct {
 
 // ============ 用户管理 DTO ============
 
-// CreateUserRequest 创建用户请求（管理员创建）
 type CreateUserRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=50"`
 	Password string `json:"password" binding:"required,min=6,max=50"`
-	TenantID string `json:"tenant_id" binding:"required"`
+	Phone    string `json:"phone"`
+	TenantID string `json:"tenant_id"`
 	RoleID   string `json:"role_id" binding:"required"`
 }
 
-// UpdateUserRequest 更新用户请求
 type UpdateUserRequest struct {
 	Password *string `json:"password"`
 	RoleID   *string `json:"role_id"`
 	Status   *int    `json:"status"`
 }
 
-// UserDetail 用户详情（含角色信息和租户名）
 type UserDetail struct {
 	ID         string `json:"id"`
 	TenantID   string `json:"tenant_id"`
 	TenantName string `json:"tenant_name"`
 	Username   string `json:"username"`
+	Phone      string `json:"phone"`
 	RoleID     string `json:"role_id"`
 	RoleName   string `json:"role_name"`
 	Role       string `json:"role"`
@@ -202,6 +222,7 @@ type CreateModelRequest struct {
 	Provider         string  `json:"provider" binding:"required"`
 	ModelID          string  `json:"model_id" binding:"required"`
 	Description      string  `json:"description"`
+	GatewayID        string  `json:"gateway_id"`
 	BillingMode      string  `json:"billing_mode"`
 	InputPricePer1K  float64 `json:"input_price_per_1k"`
 	OutputPricePer1K float64 `json:"output_price_per_1k"`
@@ -217,6 +238,7 @@ type UpdateModelRequest struct {
 	Provider         *string  `json:"provider"`
 	ModelID          *string  `json:"model_id"`
 	Description      *string  `json:"description"`
+	GatewayID        *string  `json:"gateway_id"`
 	BillingMode      *string  `json:"billing_mode"`
 	InputPricePer1K  *float64 `json:"input_price_per_1k"`
 	OutputPricePer1K *float64 `json:"output_price_per_1k"`
@@ -236,9 +258,15 @@ type UpdateModelDocRequest struct {
 
 type CreateAPIKeyRequest struct {
 	Name         string     `json:"name" binding:"required,min=1,max=100"`
+	Models       string     `json:"models" binding:"required"`
 	RateLimitQPM int        `json:"rate_limit_qpm"`
-	Models       string     `json:"models"`
 	ExpiresAt    *time.Time `json:"expires_at"`
+}
+
+type UpdateAPIKeyRequest struct {
+	Models    *string    `json:"models"`
+	ExpiresAt *time.Time `json:"expires_at"`
+	Status    *int       `json:"status"`
 }
 
 type APIKeyResponse struct {
@@ -332,8 +360,8 @@ type OpenAIUsage struct {
 }
 
 type OpenAIModelItem struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
+	ID       string `json:"id"`
+	Object   string `json:"object"`
 	OwnedBy string `json:"owned_by"`
 }
 

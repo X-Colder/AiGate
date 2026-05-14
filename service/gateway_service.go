@@ -21,15 +21,13 @@ func NewGatewayService(db *gorm.DB) *GatewayService {
 }
 
 // Create 创建网关，同时创建默认策略
-func (s *GatewayService) Create(tenantID string, req *model.CreateGatewayRequest) (*model.Gateway, error) {
+func (s *GatewayService) Create(req *model.CreateGatewayRequest) (*model.Gateway, error) {
 	gw := model.Gateway{
 		ID:       uuid.New().String(),
-		TenantID: tenantID,
 		Name:     req.Name,
 		Provider: req.Provider,
 		BaseURL:  req.BaseURL,
 		APIKey:   req.APIKey,
-		Model:    req.Model,
 		Timeout:  req.Timeout,
 		Status:   1,
 	}
@@ -53,17 +51,13 @@ func (s *GatewayService) Create(tenantID string, req *model.CreateGatewayRequest
 	}
 
 	// 重新查询带策略的完整数据
-	return s.GetByID(tenantID, gw.ID)
+	return s.GetByID(gw.ID)
 }
 
-// List 获取网关列表
-// tenantID 为空则查所有（admin），非空则只查指定租户
-func (s *GatewayService) List(tenantID string) ([]model.Gateway, error) {
+// List 获取所有网关列表（网关为全局资源）
+func (s *GatewayService) List() ([]model.Gateway, error) {
 	var gateways []model.Gateway
 	db := s.db.Preload("Policy")
-	if tenantID != "" {
-		db = db.Where("tenant_id = ?", tenantID)
-	}
 	if err := db.Find(&gateways).Error; err != nil {
 		return nil, fmt.Errorf("list gateways error: %w", err)
 	}
@@ -71,17 +65,17 @@ func (s *GatewayService) List(tenantID string) ([]model.Gateway, error) {
 }
 
 // GetByID 获取单个网关
-func (s *GatewayService) GetByID(tenantID, gatewayID string) (*model.Gateway, error) {
+func (s *GatewayService) GetByID(gatewayID string) (*model.Gateway, error) {
 	var gw model.Gateway
-	if err := s.db.Where("id = ? AND tenant_id = ?", gatewayID, tenantID).Preload("Policy").First(&gw).Error; err != nil {
+	if err := s.db.Where("id = ?", gatewayID).Preload("Policy").First(&gw).Error; err != nil {
 		return nil, fmt.Errorf("gateway not found")
 	}
 	return &gw, nil
 }
 
 // Update 更新网关信息
-func (s *GatewayService) Update(tenantID, gatewayID string, req *model.UpdateGatewayRequest) (*model.Gateway, error) {
-	gw, err := s.GetByID(tenantID, gatewayID)
+func (s *GatewayService) Update(gatewayID string, req *model.UpdateGatewayRequest) (*model.Gateway, error) {
+	gw, err := s.GetByID(gatewayID)
 	if err != nil {
 		return nil, err
 	}
@@ -99,9 +93,6 @@ func (s *GatewayService) Update(tenantID, gatewayID string, req *model.UpdateGat
 	if req.APIKey != "" {
 		updates["api_key"] = req.APIKey
 	}
-	if req.Model != "" {
-		updates["model"] = req.Model
-	}
 	if req.Timeout > 0 {
 		updates["timeout"] = req.Timeout
 	}
@@ -115,12 +106,12 @@ func (s *GatewayService) Update(tenantID, gatewayID string, req *model.UpdateGat
 		}
 	}
 
-	return s.GetByID(tenantID, gatewayID)
+	return s.GetByID(gatewayID)
 }
 
 // Delete 删除网关及其策略
-func (s *GatewayService) Delete(tenantID, gatewayID string) error {
-	_, err := s.GetByID(tenantID, gatewayID)
+func (s *GatewayService) Delete(gatewayID string) error {
+	_, err := s.GetByID(gatewayID)
 	if err != nil {
 		return err
 	}
@@ -128,14 +119,14 @@ func (s *GatewayService) Delete(tenantID, gatewayID string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		tx.Where("gateway_id = ?", gatewayID).Delete(&model.GatewayPolicy{})
 		tx.Where("gateway_id = ?", gatewayID).Delete(&model.MetricRecord{})
-		return tx.Where("id = ? AND tenant_id = ?", gatewayID, tenantID).Delete(&model.Gateway{}).Error
+		return tx.Where("id = ?", gatewayID).Delete(&model.Gateway{}).Error
 	})
 }
 
 // UpdatePolicy 更新网关策略
-func (s *GatewayService) UpdatePolicy(tenantID, gatewayID string, req *model.UpdatePolicyRequest) (*model.GatewayPolicy, error) {
-	// 先验证网关归属
-	if _, err := s.GetByID(tenantID, gatewayID); err != nil {
+func (s *GatewayService) UpdatePolicy(gatewayID string, req *model.UpdatePolicyRequest) (*model.GatewayPolicy, error) {
+	// 先验证网关存在
+	if _, err := s.GetByID(gatewayID); err != nil {
 		return nil, err
 	}
 
@@ -182,11 +173,8 @@ func buildPolicyUpdates(req *model.UpdatePolicyRequest) map[string]interface{} {
 	if req.FallbackEnabled != nil {
 		u["fallback_enabled"] = *req.FallbackEnabled
 	}
-	if req.FallbackProvider != nil {
-		u["fallback_provider"] = *req.FallbackProvider
-	}
-	if req.FallbackModel != nil {
-		u["fallback_model"] = *req.FallbackModel
+	if req.FallbackGatewayID != nil {
+		u["fallback_gateway_id"] = *req.FallbackGatewayID
 	}
 	return u
 }

@@ -44,9 +44,9 @@ func main() {
 		}
 	}
 
-	// 6. 初始化默认租户（首次启动时创建）
-	if err := store.InitDefaultTenant(); err != nil {
-		logger.Warnf("Init default tenant: %v", err)
+	// 6. 初始化默认数据（角色 + 管理员账户）
+	if err := store.InitDefaultData(); err != nil {
+		logger.Warnf("Init default data: %v", err)
 	}
 
 	// 7. 启动 Metrics 缓冲写入

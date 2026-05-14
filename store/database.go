@@ -14,10 +14,10 @@ import (
 
 var DB *gorm.DB
 
-const DefaultTenantID = "00000000-0000-0000-0000-000000000001"
 const DefaultAdminRoleID = "00000000-0000-0000-0000-000000000010"
 const DefaultUserRoleID = "00000000-0000-0000-0000-000000000011"
-const DefaultDeveloperRoleID = "00000000-0000-0000-0000-000000000012"
+const DefaultTeamAdminRoleID = "00000000-0000-0000-0000-000000000012"
+const DefaultTeamMemberRoleID = "00000000-0000-0000-0000-000000000013"
 
 func InitDB(cfg *config.DatabaseConfig) error {
 	dsn := buildMySQLDSN(cfg)
@@ -70,6 +70,7 @@ func InitDB(cfg *config.DatabaseConfig) error {
 		&model.UserBalance{},
 		&model.BalanceTransaction{},
 		&model.UsageRecord{},
+		&model.TeamInvitation{},
 	); err != nil {
 		return err
 	}
@@ -91,27 +92,17 @@ func SetDB(db *gorm.DB) {
 	DB = db
 }
 
-func InitDefaultTenant() error {
+func InitDefaultData() error {
 	initDefaultRoles()
 
 	var count int64
-	DB.Model(&model.Tenant{}).Count(&count)
+	DB.Model(&model.User{}).Where("username = ?", "admin").Count(&count)
 	if count > 0 {
 		return nil
 	}
 
-	tenant := model.Tenant{
-		ID:     DefaultTenantID,
-		Name:   "Default",
-		Status: 1,
-	}
-	if err := DB.Create(&tenant).Error; err != nil {
-		return err
-	}
-
 	admin := model.User{
 		ID:       "00000000-0000-0000-0000-000000000001",
-		TenantID: DefaultTenantID,
 		Username: "admin",
 		Password: "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
 		RoleID:   DefaultAdminRoleID,
@@ -122,15 +113,16 @@ func InitDefaultTenant() error {
 		return err
 	}
 
-	logger.Infof("Default tenant and admin user created")
+	logger.Infof("Default admin user created")
 	return nil
 }
 
 func initDefaultRoles() {
 	roles := []model.Role{
-		{ID: DefaultAdminRoleID, Name: "超级管理员", Description: "全部权限", TenantAccess: true, GatewayAccess: true, MonitorAccess: true, APIAccess: true, IsSystem: true},
-		{ID: DefaultUserRoleID, Name: "普通用户", Description: "网关管理和监控", TenantAccess: false, GatewayAccess: true, MonitorAccess: true, APIAccess: false, IsSystem: true},
-		{ID: DefaultDeveloperRoleID, Name: "开发者", Description: "API调用权限", TenantAccess: false, GatewayAccess: false, MonitorAccess: false, APIAccess: true, IsSystem: true},
+		{ID: DefaultAdminRoleID, Name: "系统管理员", Description: "系统全部权限", TenantAccess: true, GatewayAccess: true, MonitorAccess: true, ModelAccess: true, APIAccess: true, TeamAccess: true, IsSystem: true},
+		{ID: DefaultUserRoleID, Name: "普通用户", Description: "C端用户，API调用", TenantAccess: false, GatewayAccess: false, MonitorAccess: false, ModelAccess: false, APIAccess: true, TeamAccess: false, IsSystem: true},
+		{ID: DefaultTeamAdminRoleID, Name: "团队管理员", Description: "团队管理+API调用", TenantAccess: false, GatewayAccess: false, MonitorAccess: false, ModelAccess: false, APIAccess: true, TeamAccess: true, IsSystem: true},
+		{ID: DefaultTeamMemberRoleID, Name: "团队成员", Description: "团队成员，共享配额", TenantAccess: false, GatewayAccess: false, MonitorAccess: false, ModelAccess: false, APIAccess: true, TeamAccess: false, IsSystem: true},
 	}
 	for _, r := range roles {
 		var count int64

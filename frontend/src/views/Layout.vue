@@ -37,7 +37,7 @@
                     </el-icon>
                     <span>监控面板</span>
                 </el-menu-item>
-                <el-menu-item index="/models" v-if="permissions.tenant_access">
+                <el-menu-item index="/models" v-if="permissions.model_access">
                     <el-icon>
                         <Cpu />
                     </el-icon>
@@ -98,7 +98,10 @@ const permissions = computed(() => {
         return {
             tenant_access: !!p.tenant_access,
             gateway_access: !!p.gateway_access,
-            monitor_access: !!p.monitor_access
+            monitor_access: !!p.monitor_access,
+            model_access: !!p.model_access,
+            api_access: !!p.api_access,
+            team_access: !!p.team_access
         }
     } catch {
         return { tenant_access: false, gateway_access: true, monitor_access: true }

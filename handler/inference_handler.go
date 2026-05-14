@@ -8,7 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
+	"github.com/aigate/config"
 	"github.com/aigate/model"
 	"github.com/aigate/provider"
 	"github.com/aigate/service"
@@ -20,6 +22,7 @@ type InferenceHandler struct {
 	usageService   *service.UsageService
 	apikeyService  *service.APIKeyService
 	registry       *provider.Registry
+	db             *gorm.DB
 }
 
 func NewInferenceHandler(
@@ -28,6 +31,7 @@ func NewInferenceHandler(
 	usageService *service.UsageService,
 	apikeyService *service.APIKeyService,
 	registry *provider.Registry,
+	db *gorm.DB,
 ) *InferenceHandler {
 	return &InferenceHandler{
 		modelService:   modelService,
@@ -35,6 +39,7 @@ func NewInferenceHandler(
 		usageService:   usageService,
 		apikeyService:  apikeyService,
 		registry:       registry,
+		db:             db,
 	}
 }
 
@@ -90,14 +95,35 @@ func (h *InferenceHandler) ChatCompletion(c *gin.Context) {
 		return
 	}
 
-	// Get provider
-	p, err := h.registry.Get(mc.Provider)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": map[string]interface{}{
-			"message": fmt.Sprintf("provider '%s' not available", mc.Provider),
-			"type":    "server_error",
-		}})
-		return
+	// Get provider: prefer gateway-based lookup, fallback to registry
+	var p provider.Provider
+	if mc.GatewayID != "" {
+		var gw model.Gateway
+		if err := h.db.Where("id = ? AND status = 1", mc.GatewayID).First(&gw).Error; err == nil {
+			// Create an ad-hoc provider from gateway config
+			timeout := gw.Timeout
+			if timeout <= 0 {
+				timeout = 60
+			}
+			gwProvider := provider.NewOpenAICompatibleProvider(gw.Provider, config.ProviderConfig{
+				Enabled: true,
+				APIKey:  gw.APIKey,
+				BaseURL: gw.BaseURL,
+				Timeout: timeout,
+			})
+			p = gwProvider
+		}
+	}
+	if p == nil {
+		var regErr error
+		p, regErr = h.registry.Get(mc.Provider)
+		if regErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": map[string]interface{}{
+				"message": fmt.Sprintf("provider '%s' not available", mc.Provider),
+				"type":    "server_error",
+			}})
+			return
+		}
 	}
 
 	// Build chat request for provider

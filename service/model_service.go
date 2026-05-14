@@ -21,6 +21,7 @@ func (s *ModelService) Create(req *model.CreateModelRequest) (*model.ModelCatalo
 		Provider:         req.Provider,
 		ModelID:          req.ModelID,
 		Description:      req.Description,
+		GatewayID:        req.GatewayID,
 		BillingMode:      req.BillingMode,
 		InputPricePer1K:  req.InputPricePer1K,
 		OutputPricePer1K: req.OutputPricePer1K,
@@ -53,7 +54,8 @@ func (s *ModelService) List() ([]model.ModelCatalog, error) {
 
 func (s *ModelService) ListEnabled() ([]model.ModelCatalog, error) {
 	var models []model.ModelCatalog
-	if err := s.db.Where("status = ?", 1).Order("sort_order ASC, created_at DESC").Find(&models).Error; err != nil {
+	if err := s.db.Where("status = ? AND gateway_id != '' AND gateway_id IN (SELECT id FROM gateways WHERE status = 1)", 1).
+		Order("sort_order ASC, created_at DESC").Find(&models).Error; err != nil {
 		return nil, err
 	}
 	return models, nil
@@ -84,6 +86,9 @@ func (s *ModelService) Update(id string, req *model.UpdateModelRequest) (*model.
 	}
 	if req.Description != nil {
 		updates["description"] = *req.Description
+	}
+	if req.GatewayID != nil {
+		updates["gateway_id"] = *req.GatewayID
 	}
 	if req.BillingMode != nil {
 		updates["billing_mode"] = *req.BillingMode

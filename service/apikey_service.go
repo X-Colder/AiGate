@@ -61,7 +61,7 @@ func (s *APIKeyService) Create(userID, tenantID string, req *model.CreateAPIKeyR
 
 func (s *APIKeyService) List(userID string) ([]model.APIKeyResponse, error) {
 	var keys []model.APIKey
-	if err := s.db.Where("user_id = ? AND status = 1", userID).Order("created_at DESC").Find(&keys).Error; err != nil {
+	if err := s.db.Where("user_id = ?", userID).Order("created_at DESC").Find(&keys).Error; err != nil {
 		return nil, err
 	}
 	result := make([]model.APIKeyResponse, len(keys))
@@ -79,6 +79,72 @@ func (s *APIKeyService) List(userID string) ([]model.APIKeyResponse, error) {
 		}
 	}
 	return result, nil
+}
+
+func (s *APIKeyService) Update(userID, keyID string, req *model.UpdateAPIKeyRequest) (*model.APIKeyResponse, error) {
+	var apiKey model.APIKey
+	if err := s.db.Where("id = ? AND user_id = ?", keyID, userID).First(&apiKey).Error; err != nil {
+		return nil, fmt.Errorf("api key not found")
+	}
+	updates := map[string]interface{}{}
+	if req.Models != nil {
+		updates["models"] = *req.Models
+	}
+	if req.ExpiresAt != nil {
+		updates["expires_at"] = *req.ExpiresAt
+	}
+	if req.Status != nil {
+		updates["status"] = *req.Status
+	}
+	if len(updates) > 0 {
+		if err := s.db.Model(&apiKey).Updates(updates).Error; err != nil {
+			return nil, err
+		}
+	}
+	s.db.Where("id = ?", keyID).First(&apiKey)
+	return &model.APIKeyResponse{
+		ID:           apiKey.ID,
+		Name:         apiKey.Name,
+		KeyPrefix:    apiKey.KeyPrefix,
+		RateLimitQPM: apiKey.RateLimitQPM,
+		Models:       apiKey.Models,
+		Status:       apiKey.Status,
+		LastUsedAt:   apiKey.LastUsedAt,
+		ExpiresAt:    apiKey.ExpiresAt,
+		CreatedAt:    apiKey.CreatedAt,
+	}, nil
+}
+
+func (s *APIKeyService) Enable(userID, keyID string) error {
+	result := s.db.Model(&model.APIKey{}).Where("id = ? AND user_id = ?", keyID, userID).Update("status", 1)
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("api key not found")
+	}
+	return result.Error
+}
+
+func (s *APIKeyService) Disable(userID, keyID string) error {
+	result := s.db.Model(&model.APIKey{}).Where("id = ? AND user_id = ?", keyID, userID).Update("status", 0)
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("api key not found")
+	}
+	return result.Error
+}
+
+func (s *APIKeyService) Extend(userID, keyID string, expiresAt *time.Time) error {
+	result := s.db.Model(&model.APIKey{}).Where("id = ? AND user_id = ?", keyID, userID).Update("expires_at", expiresAt)
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("api key not found")
+	}
+	return result.Error
+}
+
+func (s *APIKeyService) Delete(userID, keyID string) error {
+	result := s.db.Where("id = ? AND user_id = ?", keyID, userID).Delete(&model.APIKey{})
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("api key not found")
+	}
+	return result.Error
 }
 
 func (s *APIKeyService) Revoke(userID, keyID string) error {

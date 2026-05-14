@@ -43,16 +43,16 @@ func (s *ChatService) Chat(ctx context.Context, req *model.ChatRequest) (*model.
 	})
 
 	if err != nil {
-		// 熔断触发，尝试降级
-		if policy.FallbackEnabled && policy.FallbackProvider != "" {
-			fallbackP, fbErr := s.registry.Get(policy.FallbackProvider)
-			if fbErr == nil {
-				fallbackReq := *req
-				fallbackReq.Provider = policy.FallbackProvider
-				if policy.FallbackModel != "" {
-					fallbackReq.Model = policy.FallbackModel
+		// 熔断触发，尝试降级：通过 FallbackGatewayID 查找降级网关
+		if policy.FallbackEnabled && policy.FallbackGatewayID != "" {
+			var fallbackGW model.Gateway
+			if fbErr := s.db.Where("id = ? AND status = 1", policy.FallbackGatewayID).First(&fallbackGW).Error; fbErr == nil {
+				fallbackP, fbErr := s.registry.Get(fallbackGW.Provider)
+				if fbErr == nil {
+					fallbackReq := *req
+					fallbackReq.Provider = fallbackGW.Provider
+					return fallbackP.Chat(ctx, &fallbackReq)
 				}
-				return fallbackP.Chat(ctx, &fallbackReq)
 			}
 		}
 		return nil, err
@@ -79,9 +79,6 @@ func (s *ChatService) findPolicy(providerName string, tenantID string) *model.Ga
 	}
 	var gateway model.Gateway
 	query := s.db.Where("provider = ? AND status = 1", providerName)
-	if tenantID != "" {
-		query = query.Where("tenant_id = ?", tenantID)
-	}
 	if query.First(&gateway).Error != nil {
 		return nil
 	}

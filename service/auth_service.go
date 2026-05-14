@@ -22,14 +22,8 @@ func NewAuthService(db *gorm.DB) *AuthService {
 	return &AuthService{db: db}
 }
 
-// Register 注册新用户
+// Register 注册新用户（用户可独立存在，无需绑定租户）
 func (s *AuthService) Register(req *model.RegisterRequest) (*model.LoginResponse, error) {
-	// 检查租户是否存在
-	var tenant model.Tenant
-	if err := s.db.Where("id = ? AND status = 1", req.TenantID).First(&tenant).Error; err != nil {
-		return nil, fmt.Errorf("tenant not found or disabled")
-	}
-
 	// 检查用户名是否已存在
 	var count int64
 	s.db.Model(&model.User{}).Where("username = ?", req.Username).Count(&count)
@@ -39,8 +33,8 @@ func (s *AuthService) Register(req *model.RegisterRequest) (*model.LoginResponse
 
 	user := model.User{
 		ID:       uuid.New().String(),
-		TenantID: req.TenantID,
 		Username: req.Username,
+		Phone:    req.Phone,
 		Password: hashPassword(req.Password),
 		Role:     "user",
 		Status:   1,
@@ -61,7 +55,7 @@ func (s *AuthService) Register(req *model.RegisterRequest) (*model.LoginResponse
 		Username:    user.Username,
 		TenantID:    user.TenantID,
 		Role:        user.Role,
-		Permissions: model.Permissions{TenantAccess: false, GatewayAccess: true, MonitorAccess: true, APIAccess: true},
+		Permissions: model.Permissions{TenantAccess: false, GatewayAccess: false, MonitorAccess: false, ModelAccess: false, APIAccess: true, TeamAccess: false},
 	}, nil
 }
 
@@ -84,12 +78,14 @@ func (s *AuthService) Login(req *model.LoginRequest) (*model.LoginResponse, erro
 			permissions.TenantAccess = role.TenantAccess
 			permissions.GatewayAccess = role.GatewayAccess
 			permissions.MonitorAccess = role.MonitorAccess
+			permissions.ModelAccess = role.ModelAccess
 			permissions.APIAccess = role.APIAccess
+			permissions.TeamAccess = role.TeamAccess
 		}
 	} else if user.Role == "admin" {
-		permissions = model.Permissions{TenantAccess: true, GatewayAccess: true, MonitorAccess: true, APIAccess: true}
+		permissions = model.Permissions{TenantAccess: true, GatewayAccess: true, MonitorAccess: true, ModelAccess: true, APIAccess: true, TeamAccess: true}
 	} else {
-		permissions = model.Permissions{TenantAccess: false, GatewayAccess: true, MonitorAccess: true, APIAccess: false}
+		permissions = model.Permissions{TenantAccess: false, GatewayAccess: false, MonitorAccess: false, ModelAccess: false, APIAccess: true, TeamAccess: false}
 	}
 
 	token, err := auth.GenerateToken(user.ID, user.TenantID, user.Username, user.Role)

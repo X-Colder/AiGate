@@ -46,7 +46,7 @@ const routes = [
                 path: 'models',
                 name: 'Models',
                 component: () => import('../views/Models.vue'),
-                meta: { permission: 'tenant_access' }
+                meta: { permission: 'model_access' }
             },
             {
                 path: 'billing',

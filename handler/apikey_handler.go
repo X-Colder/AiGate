@@ -44,6 +44,22 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 	response.Success(c, keys)
 }
 
+func (h *APIKeyHandler) Update(c *gin.Context) {
+	userID := c.GetString("user_id")
+	keyID := c.Param("id")
+	var req model.UpdateAPIKeyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+		return
+	}
+	key, err := h.apikeyService.Update(userID, keyID, &req)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(c, key)
+}
+
 func (h *APIKeyHandler) Revoke(c *gin.Context) {
 	userID := c.GetString("user_id")
 	keyID := c.Param("id")
@@ -52,4 +68,14 @@ func (h *APIKeyHandler) Revoke(c *gin.Context) {
 		return
 	}
 	response.Success(c, gin.H{"message": "api key revoked"})
+}
+
+func (h *APIKeyHandler) Delete(c *gin.Context) {
+	userID := c.GetString("user_id")
+	keyID := c.Param("id")
+	if err := h.apikeyService.Delete(userID, keyID); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"message": "api key deleted"})
 }

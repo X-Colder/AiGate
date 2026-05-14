@@ -69,7 +69,7 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 	modelHandler := handler.NewModelHandler(modelService, billingService)
 	apikeyHandler := handler.NewAPIKeyHandler(apikeyService)
 	developerHandler := handler.NewDeveloperHandler(modelService, billingService, usageService)
-	inferenceHandler := handler.NewInferenceHandler(modelService, billingService, usageService, apikeyService, registry)
+	inferenceHandler := handler.NewInferenceHandler(modelService, billingService, usageService, apikeyService, registry, db)
 
 	// ===== 前端静态文件服务 =====
 	r.Static("/assets", "./frontend/dist/assets")
@@ -190,7 +190,8 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 		{
 			developer.POST("/apikeys", apikeyHandler.Create)
 			developer.GET("/apikeys", apikeyHandler.List)
-			developer.DELETE("/apikeys/:id", apikeyHandler.Revoke)
+			developer.PUT("/apikeys/:id", apikeyHandler.Update)
+			developer.DELETE("/apikeys/:id", apikeyHandler.Delete)
 
 			developer.GET("/models", developerHandler.ListModels)
 			developer.GET("/models/:id/doc", developerHandler.GetModelDoc)

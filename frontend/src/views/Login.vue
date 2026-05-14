@@ -58,7 +58,9 @@ const handleLogin = async () => {
             localStorage.setItem('permissions', JSON.stringify(res.data.permissions))
         }
         ElMessage.success('登录成功')
-        if (res.data.permissions?.api_access && !res.data.permissions?.tenant_access && !res.data.permissions?.gateway_access) {
+        if (res.data.permissions?.tenant_access || res.data.permissions?.gateway_access) {
+            router.push('/')
+        } else if (res.data.permissions?.api_access) {
             router.push('/developer')
         } else {
             router.push('/')

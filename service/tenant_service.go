@@ -30,12 +30,14 @@ func (s *TenantService) Create(req *model.CreateTenantRequest) (*model.Tenant, e
 		return nil, fmt.Errorf("tenant name already exists")
 	}
 
+	adminID := uuid.New().String()
 	tenant := model.Tenant{
-		ID:     uuid.New().String(),
-		Name:   req.Name,
-		Email:  req.Email,
-		Phone:  req.Phone,
-		Status: 1,
+		ID:      uuid.New().String(),
+		Name:    req.Name,
+		OwnerID: adminID,
+		Email:   req.Email,
+		Phone:   req.Phone,
+		Status:  1,
 	}
 
 	// 事务：创建租户 + 创建该租户的管理员用户
@@ -44,11 +46,11 @@ func (s *TenantService) Create(req *model.CreateTenantRequest) (*model.Tenant, e
 			return fmt.Errorf("create tenant error: %w", err)
 		}
 		admin := model.User{
-			ID:       uuid.New().String(),
+			ID:       adminID,
 			TenantID: tenant.ID,
 			Username: req.AdminUser,
 			Password: fmt.Sprintf("%x", sha256.Sum256([]byte(req.Password))),
-			RoleID:   store.DefaultUserRoleID,
+			RoleID:   store.DefaultTeamAdminRoleID,
 			Role:     "user",
 			Status:   1,
 		}
@@ -89,17 +91,13 @@ func (s *TenantService) List() ([]model.TenantDetail, error) {
 	s.db.Model(&model.User{}).Select("tenant_id, COUNT(*) as count").
 		Where("tenant_id IN ?", tenantIDs).Group("tenant_id").Scan(&userCounts)
 
-	var gwCounts []countResult
-	s.db.Model(&model.Gateway{}).Select("tenant_id, COUNT(*) as count").
-		Where("tenant_id IN ?", tenantIDs).Group("tenant_id").Scan(&gwCounts)
+	// 网关现在是全局资源，统计全局网关数
+	var totalGWCount int64
+	s.db.Model(&model.Gateway{}).Count(&totalGWCount)
 
 	userMap := make(map[string]int64)
 	for _, uc := range userCounts {
 		userMap[uc.TenantID] = uc.Count
-	}
-	gwMap := make(map[string]int64)
-	for _, gc := range gwCounts {
-		gwMap[gc.TenantID] = gc.Count
 	}
 
 	details := make([]model.TenantDetail, len(tenants))
@@ -107,7 +105,7 @@ func (s *TenantService) List() ([]model.TenantDetail, error) {
 		details[i] = model.TenantDetail{
 			Tenant:       t,
 			UserCount:    userMap[t.ID],
-			GatewayCount: gwMap[t.ID],
+			GatewayCount: totalGWCount,
 		}
 	}
 	return details, nil
@@ -149,20 +147,12 @@ func (s *TenantService) Update(id string, req *model.UpdateTenantRequest) (*mode
 	return s.GetByID(id)
 }
 
-// Delete 删除租户（同时删除关联的用户、网关、策略、指标）
+// Delete 删除租户（同时删除关联的用户）
 func (s *TenantService) Delete(id string) error {
 	if _, err := s.GetByID(id); err != nil {
 		return err
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// 删除网关策略和指标
-		var gwIDs []string
-		tx.Model(&model.Gateway{}).Where("tenant_id = ?", id).Pluck("id", &gwIDs)
-		if len(gwIDs) > 0 {
-			tx.Where("gateway_id IN ?", gwIDs).Delete(&model.GatewayPolicy{})
-			tx.Where("gateway_id IN ?", gwIDs).Delete(&model.MetricRecord{})
-		}
-		tx.Where("tenant_id = ?", id).Delete(&model.Gateway{})
 		tx.Where("tenant_id = ?", id).Delete(&model.User{})
 		return tx.Where("id = ?", id).Delete(&model.Tenant{}).Error
 	})
@@ -176,7 +166,7 @@ func (s *TenantService) GetUsage(tenantID string) (*model.TenantUsage, error) {
 	}
 
 	var gateways []model.Gateway
-	s.db.Where("tenant_id = ?", tenantID).Find(&gateways)
+	s.db.Where("status = 1").Find(&gateways)
 
 	usage := &model.TenantUsage{TenantID: tenant.ID, TenantName: tenant.Name}
 

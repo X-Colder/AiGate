@@ -58,35 +58,40 @@ func loadPermissions(c *gin.Context, db *gorm.DB, claims *auth.Claims) {
 			c.Set("tenant_access", true)
 			c.Set("gateway_access", true)
 			c.Set("monitor_access", true)
+			c.Set("model_access", true)
 			c.Set("api_access", true)
+			c.Set("team_access", true)
 		}
 		return
 	}
 
-	// Redis 缓存优先
 	cached, err := store.GetCachedRolePermissions(c.Request.Context(), user.RoleID)
 	if err == nil && cached != nil {
 		c.Set("tenant_access", cached.TenantAccess)
 		c.Set("gateway_access", cached.GatewayAccess)
 		c.Set("monitor_access", cached.MonitorAccess)
+		c.Set("model_access", cached.ModelAccess)
 		c.Set("api_access", cached.APIAccess)
+		c.Set("team_access", cached.TeamAccess)
 		return
 	}
 
-	// 缓存未命中，查 DB
 	var role model.Role
 	if db.Where("id = ?", user.RoleID).First(&role).Error == nil {
 		c.Set("tenant_access", role.TenantAccess)
 		c.Set("gateway_access", role.GatewayAccess)
 		c.Set("monitor_access", role.MonitorAccess)
+		c.Set("model_access", role.ModelAccess)
 		c.Set("api_access", role.APIAccess)
+		c.Set("team_access", role.TeamAccess)
 
-		// 写回缓存
 		_ = store.CacheRolePermissions(c.Request.Context(), user.RoleID, &store.RolePermissions{
 			TenantAccess:  role.TenantAccess,
 			GatewayAccess: role.GatewayAccess,
 			MonitorAccess: role.MonitorAccess,
+			ModelAccess:   role.ModelAccess,
 			APIAccess:     role.APIAccess,
+			TeamAccess:    role.TeamAccess,
 		})
 	}
 }

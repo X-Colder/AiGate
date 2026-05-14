@@ -66,7 +66,9 @@ func (p *OpenAIProvider) Chat(ctx context.Context, req *model.ChatRequest) (*mod
 		return nil, fmt.Errorf("create request error: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+p.cfg.APIKey)
+	if p.cfg.APIKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+p.cfg.APIKey)
+	}
 
 	resp, err := p.client.Do(httpReq)
 	if err != nil {

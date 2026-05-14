@@ -72,9 +72,10 @@ func (p *OpenAICompatibleProvider) Chat(ctx context.Context, req *model.ChatRequ
 		return nil, fmt.Errorf("[%s] create request error: %w", p.providerName, err)
 	}
 
-	// 设置通用请求头：JSON 格式 + Bearer Token 认证
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+p.cfg.APIKey)
+	if p.cfg.APIKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+p.cfg.APIKey)
+	}
 
 	resp, err := p.client.Do(httpReq)
 	if err != nil {

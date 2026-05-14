@@ -83,9 +83,10 @@ func (p *AnthropicProvider) Chat(ctx context.Context, req *model.ChatRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("create request error: %w", err)
 	}
-	// Anthropic 使用 x-api-key 头和版本号认证，而非 Bearer Token
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("x-api-key", p.cfg.APIKey)
+	if p.cfg.APIKey != "" {
+		httpReq.Header.Set("x-api-key", p.cfg.APIKey)
+	}
 	httpReq.Header.Set("anthropic-version", "2023-06-01")
 
 	resp, err := p.client.Do(httpReq)

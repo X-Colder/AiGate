@@ -54,8 +54,9 @@
                 <el-form-item label="API 地址">
                     <el-input v-model="gwForm.base_url" placeholder="https://api.example.com/v1" />
                 </el-form-item>
-                <el-form-item label="API Key">
-                    <el-input v-model="gwForm.api_key" placeholder="sk-..." show-password />
+                <el-form-item label="上游密钥">
+                    <el-input v-model="gwForm.api_key" placeholder="选填，自建服务可留空" show-password />
+                    <div style="font-size:12px;color:#909399;margin-top:4px">第三方服务需填写提供商的 API Key，自建服务（vLLM/Ollama 等）可留空</div>
                 </el-form-item>
                 <el-form-item label="超时(秒)">
                     <el-input-number v-model="gwForm.timeout" :min="5" :max="300" />

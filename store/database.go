@@ -125,10 +125,20 @@ func initDefaultRoles() {
 		{ID: DefaultTeamMemberRoleID, Name: "团队成员", Description: "团队成员，共享配额", TenantAccess: false, GatewayAccess: false, MonitorAccess: false, ModelAccess: false, APIAccess: true, TeamAccess: false, IsSystem: true},
 	}
 	for _, r := range roles {
-		var count int64
-		DB.Model(&model.Role{}).Where("id = ?", r.ID).Count(&count)
-		if count == 0 {
+		var existing model.Role
+		if DB.Where("id = ?", r.ID).First(&existing).Error != nil {
 			DB.Create(&r)
+		} else {
+			DB.Model(&existing).Updates(map[string]interface{}{
+				"name":           r.Name,
+				"description":    r.Description,
+				"tenant_access":  r.TenantAccess,
+				"gateway_access": r.GatewayAccess,
+				"monitor_access": r.MonitorAccess,
+				"model_access":   r.ModelAccess,
+				"api_access":     r.APIAccess,
+				"team_access":    r.TeamAccess,
+			})
 		}
 	}
 }

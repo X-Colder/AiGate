@@ -241,10 +241,40 @@ AiGate/
 
 ## Docker 部署
 
-项目提供 `docker-compose.yml`，一键启动 MySQL + Redis + AiGate：
+项目提供 `docker-compose.yml` 和 `deploy.sh` 脚本，支持一键部署和增量更新。
+
+### 首次部署
 
 ```bash
+# 方式一：docker-compose
 docker-compose up -d
+
+# 方式二：deploy.sh（更多控制）
+bash deploy.sh start
+```
+
+### 增量更新
+
+代码更新后，只需重建 App 容器，MySQL/Redis 数据完整保留：
+
+```bash
+# 方式一：docker-compose
+docker-compose up -d --build
+
+# 方式二：deploy.sh（自动拉取代码 + 重建 + 仅重启 App）
+bash deploy.sh update
+```
+
+> GORM AutoMigrate 在每次启动时自动处理表结构变更（新增表/字段），无需手动迁移。
+
+### 其他操作
+
+```bash
+bash deploy.sh status    # 查看容器状态
+bash deploy.sh logs      # 查看 AiGate 日志
+bash deploy.sh stop      # 停止所有容器
+bash deploy.sh restart   # 完整重启
+bash deploy.sh clean     # 删除所有容器和数据（不可逆）
 ```
 
 服务启动后访问 `http://localhost:8081`。

@@ -28,11 +28,14 @@ AiGate 是一个多租户 AI 网关服务，统一代理 OpenAI、Anthropic、De
 
 - **多 AI 提供者** — 统一接口代理 6 种 AI 服务，支持通过配置动态启停
 - **多租户隔离** — 数据按租户隔离，租户级网关与用量管理
-- **RBAC 权限** — 角色定义模块级访问权限（租户管理/网关管理/监控面板），系统内置超级管理员和普通用户角色
+- **RBAC 权限** — 角色定义模块级访问权限（租户管理/网关管理/监控面板/API开发），系统内置超级管理员、普通用户、开发者角色
 - **网关策略** — 每个网关可独立配置限流（QPS/突发）、熔断（错误率阈值/恢复超时）、降级（备用 Provider + Model）
 - **监控统计** — 按时间范围查询请求量、Token 消耗、平均延迟、错误率、独立用户数，支持趋势折线图
 - **JWT 认证** — Bearer Token 认证，24 小时有效期
 - **Vue3 前端** — Element Plus 蓝白主题管理界面，按权限动态渲染侧边栏菜单
+- **C 端开发者能力** — API Key 管理、模型目录浏览、OpenAI 兼容推理接口、Token 计费、用量监控
+- **模型管理** — 管理员配置可用模型、定价（按 Token/按次/月配额/免费额度）、接口文档
+- **计费系统** — 预充值余额、实时扣费、交易流水、配额管理
 
 ## 技术栈
 
@@ -146,15 +149,17 @@ AiGate/
 │   ├── anthropic.go        #   Anthropic 实现
 │   └── openai_compatible.go#   OpenAI 兼容协议基类（DeepSeek/豆包/Qwen/Kimi）
 ├── model/                  # 数据模型（Entity + DTO + Chat 协议）
-├── middleware/             # 中间件（Auth/RBAC/CORS/Logger/Recovery）
-├── store/                  # 数据库初始化 + 默认数据
+├── middleware/             # 中间件（Auth/RBAC/APIKeyAuth/CORS/Logger/Recovery）
+├── store/                  # 数据库初始化 + 默认数据 + Redis缓存
 ├── pkg/                    # 内部工具包
 │   ├── auth/               #   JWT 生成/验证
 │   ├── logger/             #   日志封装
+│   ├── resilience/         #   熔断器
 │   └── response/           #   统一 JSON 响应
 ├── frontend/               # Vue3 前端
 │   └── src/
-│       ├── views/          #   页面组件（Login/Gateways/Monitor/Tenants/Users/Roles）
+│       ├── views/          #   B端页面（Login/Gateways/Monitor/Tenants/Users/Roles/Models/Billing）
+│       ├── views/developer/#   C端开发者控制台（Dashboard/APIKeys/ModelList/Usage/Balance）
 │       ├── router/         #   前端路由 + RBAC 守卫
 │       └── api/            #   Axios 请求封装
 ├── docs/                   # API 文档 + 测试报告
@@ -192,6 +197,32 @@ AiGate/
 | GET | `/api/v1/admin/tenants/:id/usage` | 租户使用详情 |
 | GET/POST/PUT/DELETE | `/api/v1/admin/roles[/:id]` | 角色 CRUD |
 | GET/POST/PUT/DELETE | `/api/v1/admin/users[/:id]` | 用户 CRUD |
+| GET/POST/PUT/DELETE | `/api/v1/admin/models[/:id]` | 模型目录 CRUD |
+| PUT | `/api/v1/admin/models/:id/doc` | 编辑模型接口文档 |
+| GET | `/api/v1/admin/billing/users` | 用户余额列表 |
+| POST | `/api/v1/admin/billing/recharge` | 用户充值 |
+
+### 开发者接口（需认证）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST/GET/DELETE | `/api/v1/developer/apikeys[/:id]` | API Key 管理 |
+| GET | `/api/v1/developer/models` | 可用模型列表 |
+| GET | `/api/v1/developer/models/:id/doc` | 模型接口文档 |
+| GET | `/api/v1/developer/balance` | 余额查询 |
+| GET | `/api/v1/developer/transactions` | 交易流水 |
+| GET | `/api/v1/developer/usage/summary` | 用量汇总 |
+| GET | `/api/v1/developer/usage/trend` | 用量趋势 |
+| GET | `/api/v1/developer/usage/records` | 调用记录 |
+
+### OpenAI 兼容推理接口（API Key 认证）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/v1/chat/completions` | 聊天推理（OpenAI 兼容格式） |
+| GET | `/v1/models` | 可用模型列表 |
+
+> 推理接口使用 `Authorization: Bearer sk-xxx` 认证（API Key），与管理接口的 JWT Token 认证独立。
 
 详细接口文档见 [docs/api_doc.md](docs/api_doc.md)。
 
@@ -217,6 +248,41 @@ docker-compose up -d
 ```
 
 服务启动后访问 `http://localhost:8081`。
+
+## C 端开发者接入
+
+### 1. 管理员配置模型
+
+登录管理后台 → 模型管理 → 新增模型，设置提供者、定价、计费模式和接口文档。
+
+### 2. 开发者注册并创建 API Key
+
+开发者使用 developer 角色登录后，进入开发者控制台 → API Keys → 创建 Key，获取 `sk-xxx` 格式的密钥。
+
+### 3. 调用推理接口
+
+使用 OpenAI 兼容格式调用，可直接用 OpenAI SDK：
+
+```bash
+curl http://localhost:8081/v1/chat/completions \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "deepseek-chat",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8081/v1", api_key="sk-your-api-key")
+response = client.chat.completions.create(
+    model="deepseek-chat",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.choices[0].message.content)
+```
 
 ## 运行测试
 

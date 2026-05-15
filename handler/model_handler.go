@@ -111,3 +111,39 @@ func (h *ModelHandler) Recharge(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"message": "recharge success"})
 }
+
+func (h *ModelHandler) GetFinanceSummary(c *gin.Context) {
+	summaries, err := h.modelService.GetFinanceSummary()
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(c, summaries)
+}
+
+func (h *ModelHandler) RechargeModel(c *gin.Context) {
+	var req model.ModelRechargeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+		return
+	}
+	if err := h.modelService.RechargeModel(req.ModelID, req.Amount, req.Description); err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"message": "model recharge success"})
+}
+
+func (h *ModelHandler) GetRechargeHistory(c *gin.Context) {
+	modelID := c.Query("model_id")
+	if modelID == "" {
+		response.Error(c, http.StatusBadRequest, "model_id is required")
+		return
+	}
+	logs, err := h.modelService.GetRechargeHistory(modelID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(c, logs)
+}

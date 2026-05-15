@@ -71,6 +71,8 @@ func InitDB(cfg *config.DatabaseConfig) error {
 		&model.BalanceTransaction{},
 		&model.UsageRecord{},
 		&model.TeamInvitation{},
+		&model.ModelRechargeLog{},
+		&model.Notification{},
 	); err != nil {
 		return err
 	}

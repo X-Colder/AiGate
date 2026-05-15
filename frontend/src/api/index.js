@@ -93,7 +93,10 @@ export const modelApi = {
 // 计费管理（管理员专用）
 export const billingApi = {
     listUsers: () => api.get('/admin/billing/users'),
-    recharge: (data) => api.post('/admin/billing/recharge', data)
+    recharge: (data) => api.post('/admin/billing/recharge', data),
+    getModelFinance: () => api.get('/admin/billing/models'),
+    rechargeModel: (data) => api.post('/admin/billing/models/recharge', data),
+    getModelRechargeHistory: (modelId) => api.get('/admin/billing/models/recharge-history', { params: { model_id: modelId } }),
 }
 
 // 开发者接口

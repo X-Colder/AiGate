@@ -218,36 +218,42 @@ type UserDetail struct {
 // ============ 模型管理 DTO ============
 
 type CreateModelRequest struct {
-	Name             string  `json:"name" binding:"required,min=2,max=100"`
-	Provider         string  `json:"provider" binding:"required"`
-	ModelID          string  `json:"model_id" binding:"required"`
-	Description      string  `json:"description"`
-	GatewayID        string  `json:"gateway_id"`
-	BillingMode      string  `json:"billing_mode"`
-	InputPricePer1K  float64 `json:"input_price_per_1k"`
-	OutputPricePer1K float64 `json:"output_price_per_1k"`
-	RequestPrice     float64 `json:"request_price"`
-	FreeQuota        int64   `json:"free_quota"`
-	MonthlyQuota     int64   `json:"monthly_quota"`
-	MaxContextLength int     `json:"max_context_length"`
-	DocContent       string  `json:"doc_content"`
+	Name                string  `json:"name" binding:"required,min=2,max=100"`
+	Provider            string  `json:"provider" binding:"required"`
+	ModelID             string  `json:"model_id" binding:"required"`
+	Description         string  `json:"description"`
+	GatewayID           string  `json:"gateway_id"`
+	BillingMode         string  `json:"billing_mode"`
+	InputPricePer1K     float64 `json:"input_price_per_1k"`
+	OutputPricePer1K    float64 `json:"output_price_per_1k"`
+	RequestPrice        float64 `json:"request_price"`
+	UpstreamInputPer1K  float64 `json:"upstream_input_per_1k"`
+	UpstreamOutputPer1K float64 `json:"upstream_output_per_1k"`
+	AlertThreshold      float64 `json:"alert_threshold"`
+	FreeQuota           int64   `json:"free_quota"`
+	MonthlyQuota        int64   `json:"monthly_quota"`
+	MaxContextLength    int     `json:"max_context_length"`
+	DocContent          string  `json:"doc_content"`
 }
 
 type UpdateModelRequest struct {
-	Name             *string  `json:"name"`
-	Provider         *string  `json:"provider"`
-	ModelID          *string  `json:"model_id"`
-	Description      *string  `json:"description"`
-	GatewayID        *string  `json:"gateway_id"`
-	BillingMode      *string  `json:"billing_mode"`
-	InputPricePer1K  *float64 `json:"input_price_per_1k"`
-	OutputPricePer1K *float64 `json:"output_price_per_1k"`
-	RequestPrice     *float64 `json:"request_price"`
-	FreeQuota        *int64   `json:"free_quota"`
-	MonthlyQuota     *int64   `json:"monthly_quota"`
-	MaxContextLength *int     `json:"max_context_length"`
-	Status           *int     `json:"status"`
-	SortOrder        *int     `json:"sort_order"`
+	Name                *string  `json:"name"`
+	Provider            *string  `json:"provider"`
+	ModelID             *string  `json:"model_id"`
+	Description         *string  `json:"description"`
+	GatewayID           *string  `json:"gateway_id"`
+	BillingMode         *string  `json:"billing_mode"`
+	InputPricePer1K     *float64 `json:"input_price_per_1k"`
+	OutputPricePer1K    *float64 `json:"output_price_per_1k"`
+	RequestPrice        *float64 `json:"request_price"`
+	UpstreamInputPer1K  *float64 `json:"upstream_input_per_1k"`
+	UpstreamOutputPer1K *float64 `json:"upstream_output_per_1k"`
+	AlertThreshold      *float64 `json:"alert_threshold"`
+	FreeQuota           *int64   `json:"free_quota"`
+	MonthlyQuota        *int64   `json:"monthly_quota"`
+	MaxContextLength    *int     `json:"max_context_length"`
+	Status              *int     `json:"status"`
+	SortOrder           *int     `json:"sort_order"`
 }
 
 type UpdateModelDocRequest struct {
@@ -307,6 +313,28 @@ type UserBalanceDetail struct {
 	FreeBalance    float64 `json:"free_balance"`
 	TotalRecharged float64 `json:"total_recharged"`
 	TotalConsumed  float64 `json:"total_consumed"`
+}
+
+// ============ 模型财务 DTO ============
+
+type ModelRechargeRequest struct {
+	ModelID     string  `json:"model_id" binding:"required"`
+	Amount      float64 `json:"amount" binding:"required,gt=0"`
+	Description string  `json:"description"`
+}
+
+type ModelFinanceSummary struct {
+	ModelID           string  `json:"model_id"`
+	ModelName         string  `json:"model_name"`
+	Provider          string  `json:"provider"`
+	UserCount         int64   `json:"user_count"`
+	TotalRevenue      float64 `json:"total_revenue"`
+	UpstreamBalance   float64 `json:"upstream_balance"`
+	UpstreamRecharge  float64 `json:"upstream_total_recharge"`
+	UpstreamCost      float64 `json:"upstream_total_cost"`
+	Profit            float64 `json:"profit"`
+	AlertThreshold    float64 `json:"alert_threshold"`
+	Status            int     `json:"status"`
 }
 
 // ============ 用量查询 DTO ============

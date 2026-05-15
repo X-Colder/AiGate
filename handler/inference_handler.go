@@ -178,6 +178,25 @@ func (h *InferenceHandler) ChatCompletion(c *gin.Context) {
 		h.billingService.Deduct(userID, tenantID, "", cost, desc)
 	}
 
+	// Calculate upstream cost and deduct from model balance
+	upstreamCost := h.modelService.CalculateUpstreamCost(mc, inputTokens, outputTokens)
+	if upstreamCost > 0 {
+		h.modelService.DeductUpstreamBalance(mc.ID, upstreamCost)
+
+		// Check if model upstream balance is below alert threshold
+		updatedMC, err := h.modelService.GetByID(mc.ID)
+		if err == nil && updatedMC.UpstreamBalance < updatedMC.AlertThreshold {
+			notification := model.Notification{
+				UserID:    "admin",
+				Type:      "balance_alert",
+				Title:     fmt.Sprintf("模型 %s 上游余额不足", updatedMC.Name),
+				Content:   fmt.Sprintf("模型 %s 上游余额 %.4f 已低于告警阈值 %.4f，请及时充值", updatedMC.Name, updatedMC.UpstreamBalance, updatedMC.AlertThreshold),
+				CreatedAt: time.Now(),
+			}
+			h.db.Create(&notification)
+		}
+	}
+
 	// Update monthly usage
 	if totalTokens > 0 {
 		h.billingService.UpdateMonthlyUsage(userID, totalTokens)
@@ -195,6 +214,7 @@ func (h *InferenceHandler) ChatCompletion(c *gin.Context) {
 		OutputTokens:   outputTokens,
 		TotalTokens:    totalTokens,
 		Cost:           cost,
+		UpstreamCost:   upstreamCost,
 		LatencyMs:      latencyMs,
 		StatusCode:     statusCode,
 		CreatedAt:      time.Now(),

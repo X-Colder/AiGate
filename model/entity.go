@@ -92,24 +92,30 @@ type MetricRecord struct {
 
 // ModelCatalog 模型目录，管理员配置可用模型和定价
 type ModelCatalog struct {
-	ID               string    `json:"id" gorm:"primaryKey;size:36"`
-	Name             string    `json:"name" gorm:"size:100;not null;uniqueIndex"`
-	Provider         string    `json:"provider" gorm:"size:50;not null;index"`
-	ModelID          string    `json:"model_id" gorm:"size:100;not null"`
-	Description      string    `json:"description" gorm:"size:500"`
-	GatewayID        string    `json:"gateway_id" gorm:"size:36;index"`
-	BillingMode      string    `json:"billing_mode" gorm:"size:50;default:prepaid"`
-	InputPricePer1K  float64   `json:"input_price_per_1k" gorm:"default:0"`
-	OutputPricePer1K float64   `json:"output_price_per_1k" gorm:"default:0"`
-	RequestPrice     float64   `json:"request_price" gorm:"default:0"`
-	FreeQuota        int64     `json:"free_quota" gorm:"default:0"`
-	MonthlyQuota     int64     `json:"monthly_quota" gorm:"default:0"`
-	MaxContextLength int       `json:"max_context_length" gorm:"default:4096"`
-	Status           int       `json:"status" gorm:"default:1"`
-	DocContent       string    `json:"doc_content,omitempty" gorm:"type:text"`
-	SortOrder        int       `json:"sort_order" gorm:"default:0"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID                    string    `json:"id" gorm:"primaryKey;size:36"`
+	Name                  string    `json:"name" gorm:"size:100;not null;uniqueIndex"`
+	Provider              string    `json:"provider" gorm:"size:50;not null;index"`
+	ModelID               string    `json:"model_id" gorm:"size:100;not null"`
+	Description           string    `json:"description" gorm:"size:500"`
+	GatewayID             string    `json:"gateway_id" gorm:"size:36;index"`
+	BillingMode           string    `json:"billing_mode" gorm:"size:50;default:prepaid"`
+	InputPricePer1K       float64   `json:"input_price_per_1k" gorm:"default:0"`
+	OutputPricePer1K      float64   `json:"output_price_per_1k" gorm:"default:0"`
+	RequestPrice          float64   `json:"request_price" gorm:"default:0"`
+	UpstreamInputPer1K    float64   `json:"upstream_input_per_1k" gorm:"default:0"`
+	UpstreamOutputPer1K   float64   `json:"upstream_output_per_1k" gorm:"default:0"`
+	UpstreamBalance       float64   `json:"upstream_balance" gorm:"default:0"`
+	UpstreamTotalRecharge float64   `json:"upstream_total_recharge" gorm:"default:0"`
+	UpstreamTotalCost     float64   `json:"upstream_total_cost" gorm:"default:0"`
+	AlertThreshold        float64   `json:"alert_threshold" gorm:"default:10"`
+	FreeQuota             int64     `json:"free_quota" gorm:"default:0"`
+	MonthlyQuota          int64     `json:"monthly_quota" gorm:"default:0"`
+	MaxContextLength      int       `json:"max_context_length" gorm:"default:4096"`
+	Status                int       `json:"status" gorm:"default:1"`
+	DocContent            string    `json:"doc_content,omitempty" gorm:"type:text"`
+	SortOrder             int       `json:"sort_order" gorm:"default:0"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
 }
 
 // APIKey 开发者 API 密钥
@@ -170,6 +176,7 @@ type UsageRecord struct {
 	OutputTokens   int64     `json:"output_tokens" gorm:"default:0"`
 	TotalTokens    int64     `json:"total_tokens" gorm:"default:0"`
 	Cost           float64   `json:"cost" gorm:"default:0"`
+	UpstreamCost   float64   `json:"upstream_cost" gorm:"default:0"`
 	LatencyMs      int64     `json:"latency_ms" gorm:"default:0"`
 	StatusCode     int       `json:"status_code" gorm:"default:200"`
 	CreatedAt      time.Time `json:"created_at" gorm:"index:idx_usage_time"`
@@ -199,3 +206,26 @@ func (UserBalance) TableName() string         { return "user_balances" }
 func (BalanceTransaction) TableName() string  { return "balance_transactions" }
 func (UsageRecord) TableName() string         { return "usage_records" }
 func (TeamInvitation) TableName() string      { return "team_invitations" }
+func (ModelRechargeLog) TableName() string    { return "model_recharge_logs" }
+func (Notification) TableName() string        { return "notifications" }
+
+// ModelRechargeLog 模型上游充值记录
+type ModelRechargeLog struct {
+	ID             uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	ModelCatalogID string    `json:"model_catalog_id" gorm:"size:36;not null;index"`
+	Amount         float64   `json:"amount"`
+	Balance        float64   `json:"balance"`
+	Description    string    `json:"description" gorm:"size:200"`
+	CreatedAt      time.Time `json:"created_at" gorm:"index"`
+}
+
+// Notification 系统通知（余额告警等）
+type Notification struct {
+	ID        uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	UserID    string    `json:"user_id" gorm:"size:36;index"`
+	Type      string    `json:"type" gorm:"size:30;not null"`
+	Title     string    `json:"title" gorm:"size:100"`
+	Content   string    `json:"content" gorm:"size:500"`
+	IsRead    bool      `json:"is_read" gorm:"default:false"`
+	CreatedAt time.Time `json:"created_at" gorm:"index"`
+}

@@ -75,6 +75,8 @@ func InitDB(cfg *config.DatabaseConfig) error {
 		return err
 	}
 
+	migrateConstraints()
+
 	logger.Infof("Database initialized: driver=%s", cfg.Driver)
 	return nil
 }
@@ -140,5 +142,20 @@ func initDefaultRoles() {
 				"team_access":    r.TeamAccess,
 			})
 		}
+	}
+}
+
+func migrateConstraints() {
+	migrations := []string{
+		"ALTER TABLE gateways MODIFY COLUMN tenant_id VARCHAR(36) DEFAULT '' NOT NULL",
+		"ALTER TABLE users MODIFY COLUMN tenant_id VARCHAR(36) DEFAULT '' NOT NULL",
+		"ALTER TABLE api_keys MODIFY COLUMN tenant_id VARCHAR(36) DEFAULT '' NOT NULL",
+		"ALTER TABLE user_balances MODIFY COLUMN tenant_id VARCHAR(36) DEFAULT '' NOT NULL",
+		"ALTER TABLE balance_transactions MODIFY COLUMN tenant_id VARCHAR(36) DEFAULT '' NOT NULL",
+		"ALTER TABLE usage_records MODIFY COLUMN tenant_id VARCHAR(36) DEFAULT '' NOT NULL",
+		"ALTER TABLE metric_records MODIFY COLUMN tenant_id VARCHAR(36) DEFAULT '' NOT NULL",
+	}
+	for _, sql := range migrations {
+		DB.Exec(sql)
 	}
 }

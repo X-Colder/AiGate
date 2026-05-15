@@ -183,6 +183,7 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 			admin.GET("/billing/users", modelHandler.ListUserBalances)
 			admin.POST("/billing/recharge", modelHandler.Recharge)
 			admin.GET("/billing/models", modelHandler.GetFinanceSummary)
+			admin.GET("/billing/models/users", modelHandler.GetModelUserStats)
 			admin.POST("/billing/models/recharge", modelHandler.RechargeModel)
 			admin.GET("/billing/models/recharge-history", modelHandler.GetRechargeHistory)
 		}

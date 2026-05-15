@@ -190,7 +190,7 @@ func (s *ModelService) RechargeModel(modelID string, amount float64, desc string
 	})
 }
 
-func (s *ModelService) GetFinanceSummary() ([]model.ModelFinanceSummary, error) {
+func (s *ModelService) GetFinanceSummary(startDate, endDate string) ([]model.ModelFinanceSummary, error) {
 	var models []model.ModelCatalog
 	if err := s.db.Order("sort_order ASC, created_at DESC").Find(&models).Error; err != nil {
 		return nil, err
@@ -198,16 +198,36 @@ func (s *ModelService) GetFinanceSummary() ([]model.ModelFinanceSummary, error) 
 
 	var summaries []model.ModelFinanceSummary
 	for _, mc := range models {
-		var revenue float64
-		var upstreamCost float64
+		var revenue, upstreamCost float64
 		var userCount int64
 
-		s.db.Model(&model.UsageRecord{}).Where("model_catalog_id = ?", mc.ID).
-			Select("COALESCE(SUM(cost), 0)").Scan(&revenue)
-		s.db.Model(&model.UsageRecord{}).Where("model_catalog_id = ?", mc.ID).
-			Select("COALESCE(SUM(upstream_cost), 0)").Scan(&upstreamCost)
-		s.db.Model(&model.UsageRecord{}).Where("model_catalog_id = ?", mc.ID).
-			Select("COUNT(DISTINCT user_id)").Scan(&userCount)
+		tx := s.db.Model(&model.UsageRecord{}).Where("model_catalog_id = ?", mc.ID)
+		if startDate != "" && endDate != "" {
+			start, _ := time.Parse("2006-01-02", startDate)
+			end, _ := time.Parse("2006-01-02", endDate)
+			end = end.Add(24 * time.Hour)
+			tx = tx.Where("created_at >= ? AND created_at < ?", start, end)
+		}
+
+		tx.Select("COALESCE(SUM(cost), 0)").Scan(&revenue)
+
+		tx2 := s.db.Model(&model.UsageRecord{}).Where("model_catalog_id = ?", mc.ID)
+		if startDate != "" && endDate != "" {
+			start, _ := time.Parse("2006-01-02", startDate)
+			end, _ := time.Parse("2006-01-02", endDate)
+			end = end.Add(24 * time.Hour)
+			tx2 = tx2.Where("created_at >= ? AND created_at < ?", start, end)
+		}
+		tx2.Select("COALESCE(SUM(upstream_cost), 0)").Scan(&upstreamCost)
+
+		tx3 := s.db.Model(&model.UsageRecord{}).Where("model_catalog_id = ?", mc.ID)
+		if startDate != "" && endDate != "" {
+			start, _ := time.Parse("2006-01-02", startDate)
+			end, _ := time.Parse("2006-01-02", endDate)
+			end = end.Add(24 * time.Hour)
+			tx3 = tx3.Where("created_at >= ? AND created_at < ?", start, end)
+		}
+		tx3.Select("COUNT(DISTINCT user_id)").Scan(&userCount)
 
 		summaries = append(summaries, model.ModelFinanceSummary{
 			ModelID:          mc.ID,
@@ -224,6 +244,22 @@ func (s *ModelService) GetFinanceSummary() ([]model.ModelFinanceSummary, error) 
 		})
 	}
 	return summaries, nil
+}
+
+func (s *ModelService) GetModelUserStats(modelID, startDate, endDate string) ([]model.ModelUserStat, error) {
+	start, _ := time.Parse("2006-01-02", startDate)
+	end, _ := time.Parse("2006-01-02", endDate)
+	end = end.Add(24 * time.Hour)
+
+	var results []model.ModelUserStat
+	s.db.Table("usage_records").
+		Select("usage_records.user_id, users.username, COUNT(*) as request_count, COALESCE(SUM(usage_records.total_tokens),0) as total_tokens, COALESCE(SUM(usage_records.cost),0) as total_paid, COALESCE(SUM(usage_records.upstream_cost),0) as upstream_cost").
+		Joins("LEFT JOIN users ON users.id = usage_records.user_id").
+		Where("usage_records.model_catalog_id = ? AND usage_records.created_at >= ? AND usage_records.created_at < ?", modelID, start, end).
+		Group("usage_records.user_id, users.username").
+		Order("total_paid DESC").
+		Scan(&results)
+	return results, nil
 }
 
 func (s *ModelService) GetRechargeHistory(modelID string) ([]model.ModelRechargeLog, error) {

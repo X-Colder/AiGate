@@ -113,12 +113,30 @@ func (h *ModelHandler) Recharge(c *gin.Context) {
 }
 
 func (h *ModelHandler) GetFinanceSummary(c *gin.Context) {
-	summaries, err := h.modelService.GetFinanceSummary()
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	summaries, err := h.modelService.GetFinanceSummary(startDate, endDate)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	response.Success(c, summaries)
+}
+
+func (h *ModelHandler) GetModelUserStats(c *gin.Context) {
+	modelID := c.Query("model_id")
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	if modelID == "" || startDate == "" || endDate == "" {
+		response.Error(c, http.StatusBadRequest, "model_id, start_date, end_date are required")
+		return
+	}
+	stats, err := h.modelService.GetModelUserStats(modelID, startDate, endDate)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(c, stats)
 }
 
 func (h *ModelHandler) RechargeModel(c *gin.Context) {

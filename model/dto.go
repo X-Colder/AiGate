@@ -324,17 +324,26 @@ type ModelRechargeRequest struct {
 }
 
 type ModelFinanceSummary struct {
-	ModelID           string  `json:"model_id"`
-	ModelName         string  `json:"model_name"`
-	Provider          string  `json:"provider"`
-	UserCount         int64   `json:"user_count"`
-	TotalRevenue      float64 `json:"total_revenue"`
-	UpstreamBalance   float64 `json:"upstream_balance"`
-	UpstreamRecharge  float64 `json:"upstream_total_recharge"`
-	UpstreamCost      float64 `json:"upstream_total_cost"`
-	Profit            float64 `json:"profit"`
-	AlertThreshold    float64 `json:"alert_threshold"`
-	Status            int     `json:"status"`
+	ModelID          string  `json:"model_id"`
+	ModelName        string  `json:"model_name"`
+	Provider         string  `json:"provider"`
+	UserCount        int64   `json:"user_count"`
+	TotalRevenue     float64 `json:"total_revenue"`
+	UpstreamBalance  float64 `json:"upstream_balance"`
+	UpstreamRecharge float64 `json:"upstream_total_recharge"`
+	UpstreamCost     float64 `json:"upstream_total_cost"`
+	Profit           float64 `json:"profit"`
+	AlertThreshold   float64 `json:"alert_threshold"`
+	Status           int     `json:"status"`
+}
+
+type ModelUserStat struct {
+	UserID       string  `json:"user_id"`
+	Username     string  `json:"username"`
+	RequestCount int64   `json:"request_count"`
+	TotalTokens  int64   `json:"total_tokens"`
+	TotalPaid    float64 `json:"total_paid"`
+	UpstreamCost float64 `json:"upstream_cost"`
 }
 
 // ============ 用量查询 DTO ============

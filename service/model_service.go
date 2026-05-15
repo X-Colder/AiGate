@@ -31,6 +31,7 @@ func (s *ModelService) Create(req *model.CreateModelRequest) (*model.ModelCatalo
 		RequestPrice:        req.RequestPrice,
 		UpstreamInputPer1K:  req.UpstreamInputPer1K,
 		UpstreamOutputPer1K: req.UpstreamOutputPer1K,
+		MonthlyPrice:        req.MonthlyPrice,
 		AlertThreshold:      req.AlertThreshold,
 		FreeQuota:           req.FreeQuota,
 		MonthlyQuota:        req.MonthlyQuota,
@@ -39,7 +40,7 @@ func (s *ModelService) Create(req *model.CreateModelRequest) (*model.ModelCatalo
 		Status:              1,
 	}
 	if m.BillingMode == "" {
-		m.BillingMode = "prepaid"
+		m.BillingMode = "both"
 	}
 	if m.MaxContextLength == 0 {
 		m.MaxContextLength = 4096
@@ -98,6 +99,9 @@ func (s *ModelService) Update(id string, req *model.UpdateModelRequest) (*model.
 	}
 	if req.BillingMode != nil {
 		updates["billing_mode"] = *req.BillingMode
+	}
+	if req.MonthlyPrice != nil {
+		updates["monthly_price"] = *req.MonthlyPrice
 	}
 	if req.InputPricePer1K != nil {
 		updates["input_price_per_1k"] = *req.InputPricePer1K

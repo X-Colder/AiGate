@@ -73,6 +73,7 @@ func InitDB(cfg *config.DatabaseConfig) error {
 		&model.TeamInvitation{},
 		&model.ModelRechargeLog{},
 		&model.Notification{},
+		&model.ModelSubscription{},
 	); err != nil {
 		return err
 	}

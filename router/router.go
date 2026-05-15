@@ -204,6 +204,9 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 			developer.GET("/usage/summary", developerHandler.GetUsageSummary)
 			developer.GET("/usage/trend", developerHandler.GetUsageTrend)
 			developer.GET("/usage/records", developerHandler.GetUsageRecords)
+
+			developer.POST("/subscriptions", developerHandler.PurchaseSubscription)
+			developer.GET("/subscriptions", developerHandler.ListSubscriptions)
 		}
 	}
 

@@ -147,15 +147,18 @@ func (s *TenantService) Update(id string, req *model.UpdateTenantRequest) (*mode
 	return s.GetByID(id)
 }
 
-// Delete 删除租户（同时删除关联的用户）
+// Delete 删除租户（如果有关联用户则拒绝删除）
 func (s *TenantService) Delete(id string) error {
 	if _, err := s.GetByID(id); err != nil {
 		return err
 	}
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		tx.Where("tenant_id = ?", id).Delete(&model.User{})
-		return tx.Where("id = ?", id).Delete(&model.Tenant{}).Error
-	})
+	// Deletion protection: count users associated with this tenant
+	var userCount int64
+	s.db.Model(&model.User{}).Where("tenant_id = ?", id).Count(&userCount)
+	if userCount > 0 {
+		return fmt.Errorf("cannot delete tenant with associated users")
+	}
+	return s.db.Where("id = ?", id).Delete(&model.Tenant{}).Error
 }
 
 // GetUsage 获取租户使用详情（管理员查看）

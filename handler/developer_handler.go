@@ -127,3 +127,29 @@ func (h *DeveloperHandler) GetUsageRecords(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"list": records, "total": total, "page": page, "page_size": pageSize})
 }
+
+func (h *DeveloperHandler) PurchaseSubscription(c *gin.Context) {
+	userID := c.GetString("user_id")
+	tenantID := c.GetString("tenant_id")
+	var req model.PurchaseSubscriptionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid request: "+err.Error())
+		return
+	}
+	result, err := h.billingService.PurchaseSubscription(userID, tenantID, &req)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *DeveloperHandler) ListSubscriptions(c *gin.Context) {
+	userID := c.GetString("user_id")
+	subs, err := h.billingService.ListSubscriptions(userID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(c, subs)
+}

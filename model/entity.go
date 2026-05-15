@@ -98,7 +98,8 @@ type ModelCatalog struct {
 	ModelID               string    `json:"model_id" gorm:"size:100;not null"`
 	Description           string    `json:"description" gorm:"size:500"`
 	GatewayID             string    `json:"gateway_id" gorm:"size:36;index"`
-	BillingMode           string    `json:"billing_mode" gorm:"size:50;default:prepaid"`
+	BillingMode           string    `json:"billing_mode" gorm:"size:50;default:both"`
+	MonthlyPrice          float64   `json:"monthly_price" gorm:"default:0"`
 	InputPricePer1K       float64   `json:"input_price_per_1k" gorm:"default:0"`
 	OutputPricePer1K      float64   `json:"output_price_per_1k" gorm:"default:0"`
 	RequestPrice          float64   `json:"request_price" gorm:"default:0"`
@@ -208,6 +209,7 @@ func (UsageRecord) TableName() string         { return "usage_records" }
 func (TeamInvitation) TableName() string      { return "team_invitations" }
 func (ModelRechargeLog) TableName() string    { return "model_recharge_logs" }
 func (Notification) TableName() string        { return "notifications" }
+func (ModelSubscription) TableName() string   { return "model_subscriptions" }
 
 // ModelRechargeLog 模型上游充值记录
 type ModelRechargeLog struct {
@@ -228,4 +230,18 @@ type Notification struct {
 	Content   string    `json:"content" gorm:"size:500"`
 	IsRead    bool      `json:"is_read" gorm:"default:false"`
 	CreatedAt time.Time `json:"created_at" gorm:"index"`
+}
+
+// ModelSubscription 模型月租订阅
+type ModelSubscription struct {
+	ID             string    `json:"id" gorm:"primaryKey;size:36"`
+	UserID         string    `json:"user_id" gorm:"size:36;not null;index"`
+	TenantID       string    `json:"tenant_id" gorm:"size:36;index"`
+	ModelCatalogID string    `json:"model_catalog_id" gorm:"size:36;not null;index"`
+	PaidBy         string    `json:"paid_by" gorm:"size:20;default:personal"`
+	StartDate      time.Time `json:"start_date"`
+	EndDate        time.Time `json:"end_date"`
+	Amount         float64   `json:"amount"`
+	Status         int       `json:"status" gorm:"default:1"`
+	CreatedAt      time.Time `json:"created_at"`
 }

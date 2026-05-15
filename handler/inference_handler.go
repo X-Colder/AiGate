@@ -86,13 +86,23 @@ func (h *InferenceHandler) ChatCompletion(c *gin.Context) {
 		}
 	}
 
-	// Check balance
-	if err := h.billingService.CheckBalance(userID, mc); err != nil {
-		c.JSON(http.StatusPaymentRequired, gin.H{"error": map[string]interface{}{
-			"message": err.Error(),
-			"type":    "insufficient_quota",
-		}})
-		return
+	// Check billing: first check monthly subscription, then token balance
+	hasSubscription := false
+	if mc.BillingMode == "both" || mc.BillingMode == "monthly" {
+		if sub, err := h.billingService.GetActiveSubscription(userID, mc.ID); err == nil && sub != nil {
+			hasSubscription = true
+		}
+	}
+
+	if !hasSubscription {
+		// No active subscription — check token balance
+		if err := h.billingService.CheckBalance(userID, mc); err != nil {
+			c.JSON(http.StatusPaymentRequired, gin.H{"error": map[string]interface{}{
+				"message": err.Error(),
+				"type":    "insufficient_quota",
+			}})
+			return
+		}
 	}
 
 	// Get provider: prefer gateway-based lookup, fallback to registry
@@ -171,11 +181,14 @@ func (h *InferenceHandler) ChatCompletion(c *gin.Context) {
 		totalTokens = int64(chatResp.Usage.TotalTokens)
 	}
 
-	// Calculate cost and deduct
-	cost := h.billingService.CalculateCost(mc, inputTokens, outputTokens)
-	if cost > 0 {
-		desc := fmt.Sprintf("调用 %s (%d tokens)", mc.Name, totalTokens)
-		h.billingService.Deduct(userID, tenantID, "", cost, desc)
+	// Calculate cost and deduct (skip if user has active subscription)
+	cost := 0.0
+	if !hasSubscription {
+		cost = h.billingService.CalculateCost(mc, inputTokens, outputTokens)
+		if cost > 0 {
+			desc := fmt.Sprintf("调用 %s (%d tokens)", mc.Name, totalTokens)
+			h.billingService.Deduct(userID, tenantID, "", cost, desc)
+		}
 	}
 
 	// Calculate upstream cost and deduct from model balance

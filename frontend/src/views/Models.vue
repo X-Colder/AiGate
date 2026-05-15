@@ -62,13 +62,22 @@
               <el-col :span="8">
                 <el-form-item label="计费模式">
                   <el-select v-model="form.billing_mode" style="width:100%">
-                    <el-option label="预充值" value="prepaid" /><el-option label="月配额" value="quota" />
-                    <el-option label="按次" value="per_request" /><el-option label="免费额度" value="free_tier" />
+                    <el-option label="月租+Token" value="both" />
+                    <el-option label="仅月租" value="monthly" />
+                    <el-option label="仅Token" value="token" />
                   </el-select>
                 </el-form-item>
               </el-col>
               <el-col :span="8"><el-form-item label="输入单价"><el-input-number v-model="form.input_price_per_1k" :min="0" :precision="4" style="width:100%" /></el-form-item></el-col>
               <el-col :span="8"><el-form-item label="输出单价"><el-input-number v-model="form.output_price_per_1k" :min="0" :precision="4" style="width:100%" /></el-form-item></el-col>
+            </el-row>
+            <el-row :gutter="16" v-if="form.billing_mode === 'both' || form.billing_mode === 'monthly'">
+              <el-col :span="8">
+                <el-form-item label="月租价格">
+                  <el-input-number v-model="form.monthly_price" :min="0" :precision="2" style="width:100%" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="4" style="line-height:32px;padding-top:30px;color:#999">元/月</el-col>
             </el-row>
             <el-row :gutter="16">
               <el-col :span="8"><el-form-item label="按次单价" v-if="form.billing_mode==='per_request'"><el-input-number v-model="form.request_price" :min="0" :precision="4" style="width:100%" /></el-form-item></el-col>
@@ -102,10 +111,10 @@ const editing = ref(false)
 const editId = ref('')
 const providers = ['openai', 'anthropic', 'deepseek', 'doubao', 'qwen', 'kimi']
 
-const defaultForm = { name: '', provider: 'openai', model_id: '', description: '', gateway_id: '', billing_mode: 'prepaid', input_price_per_1k: 0, output_price_per_1k: 0, request_price: 0, free_quota: 0, monthly_quota: 0, max_context_length: 4096, doc_content: '' }
+const defaultForm = { name: '', provider: 'openai', model_id: '', description: '', gateway_id: '', billing_mode: 'both', input_price_per_1k: 0, output_price_per_1k: 0, request_price: 0, free_quota: 0, monthly_quota: 0, monthly_price: 0, max_context_length: 4096, doc_content: '' }
 const form = ref({ ...defaultForm })
 
-const billingLabel = (m) => ({ prepaid: '预充值', quota: '月配额', per_request: '按次', free_tier: '免费' }[m] || m)
+const billingLabel = (m) => ({ both: '月租+Token', monthly: '仅月租', token: '仅Token', prepaid: '预充值', quota: '月配额', per_request: '按次', free_tier: '免费' }[m] || m)
 const getGatewayName = (id) => { const g = gateways.value.find(x => x.id === id); return g ? g.name : id.slice(0, 8) }
 
 const loadData = async () => {

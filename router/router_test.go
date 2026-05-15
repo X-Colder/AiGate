@@ -266,7 +266,8 @@ func TestAPI_CORS_Preflight(t *testing.T) {
 // ===== 管理员租户管理 =====
 
 func TestAPI_Admin_Tenants_CRUD(t *testing.T) {
-	r := Setup(testConfig(), testDB())
+	db := testDB()
+	r := Setup(testConfig(), db)
 
 	// 创建租户
 	body, _ := json.Marshal(map[string]string{"name": "NewTenant", "admin_user": "newtenant_admin", "password": "pass123", "email": "test@example.com", "phone": "13800138000"})
@@ -310,11 +311,12 @@ func TestAPI_Admin_Tenants_CRUD(t *testing.T) {
 		t.Fatalf("usage: expected 200, got %d, body: %s", w.Code, w.Body.String())
 	}
 
-	// 删除
+	// 删除（先移除关联用户，再删除租户）
+	db.Where("tenant_id = ?", tenantID).Delete(&model.User{})
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, authReq("DELETE", "/api/v1/admin/tenants/"+tenantID, nil))
 	if w.Code != http.StatusOK {
-		t.Fatalf("delete: expected 200, got %d", w.Code)
+		t.Fatalf("delete: expected 200, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
 

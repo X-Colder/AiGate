@@ -113,7 +113,9 @@ export const developerApi = {
     getTransactions: (params) => api.get('/developer/transactions', { params }),
     getUsageSummary: (params) => api.get('/developer/usage/summary', { params }),
     getUsageTrend: (params) => api.get('/developer/usage/trend', { params }),
-    getUsageRecords: (params) => api.get('/developer/usage/records', { params })
+    getUsageRecords: (params) => api.get('/developer/usage/records', { params }),
+    purchaseSubscription: (data) => api.post('/developer/subscriptions', data),
+    listSubscriptions: () => api.get('/developer/subscriptions'),
 }
 
 export default api

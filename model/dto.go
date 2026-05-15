@@ -224,6 +224,7 @@ type CreateModelRequest struct {
 	Description         string  `json:"description"`
 	GatewayID           string  `json:"gateway_id"`
 	BillingMode         string  `json:"billing_mode"`
+	MonthlyPrice        float64 `json:"monthly_price"`
 	InputPricePer1K     float64 `json:"input_price_per_1k"`
 	OutputPricePer1K    float64 `json:"output_price_per_1k"`
 	RequestPrice        float64 `json:"request_price"`
@@ -243,6 +244,7 @@ type UpdateModelRequest struct {
 	Description         *string  `json:"description"`
 	GatewayID           *string  `json:"gateway_id"`
 	BillingMode         *string  `json:"billing_mode"`
+	MonthlyPrice        *float64 `json:"monthly_price"`
 	InputPricePer1K     *float64 `json:"input_price_per_1k"`
 	OutputPricePer1K    *float64 `json:"output_price_per_1k"`
 	RequestPrice        *float64 `json:"request_price"`
@@ -321,6 +323,22 @@ type ModelRechargeRequest struct {
 	ModelID     string  `json:"model_id" binding:"required"`
 	Amount      float64 `json:"amount" binding:"required,gt=0"`
 	Description string  `json:"description"`
+}
+
+type PurchaseSubscriptionRequest struct {
+	ModelID string `json:"model_id" binding:"required"`
+	PaidBy  string `json:"paid_by"`
+}
+
+type SubscriptionResponse struct {
+	ID        string `json:"id"`
+	ModelID   string `json:"model_catalog_id"`
+	ModelName string `json:"model_name"`
+	StartDate string `json:"start_date"`
+	EndDate   string `json:"end_date"`
+	PaidBy    string `json:"paid_by"`
+	Amount    float64 `json:"amount"`
+	Status    int    `json:"status"`
 }
 
 type ModelFinanceSummary struct {

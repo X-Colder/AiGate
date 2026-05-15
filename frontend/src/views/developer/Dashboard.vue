@@ -8,6 +8,19 @@
       <el-col :span="6"><el-card shadow="hover"><el-statistic title="本月消费 (元)" :value="usage.total_cost" :precision="4" /></el-card></el-col>
     </el-row>
     <el-card style="margin-top:20px">
+      <h3>活跃订阅</h3>
+      <p v-if="subscriptions.length === 0" style="color:#999">暂无活跃订阅</p>
+      <el-table v-else :data="subscriptions" size="small">
+        <el-table-column prop="model_name" label="模型名称" />
+        <el-table-column prop="end_date" label="到期时间" width="180" />
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="subscriptionStatusType(row.status)" size="small">{{ subscriptionStatusLabel(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+    <el-card style="margin-top:20px">
       <h3>API Keys</h3>
       <p v-if="keys.length === 0" style="color:#999">暂无 API Key，请前往 <router-link to="/developer/apikeys">API Keys</router-link> 页面创建</p>
       <el-table v-else :data="keys" size="small">
@@ -26,6 +39,10 @@ import { developerApi } from '../../api/index.js'
 const balance = ref({ balance: 0, free_balance: 0 })
 const usage = ref({ total_requests: 0, total_tokens: 0, total_cost: 0 })
 const keys = ref([])
+const subscriptions = ref([])
+
+const subscriptionStatusLabel = (s) => ({ active: '生效中', expired: '已过期', cancelled: '已取消' }[s] || s)
+const subscriptionStatusType = (s) => ({ active: 'success', expired: 'info', cancelled: 'danger' }[s] || 'info')
 
 onMounted(async () => {
   const [bRes, kRes] = await Promise.all([developerApi.getBalance(), developerApi.listKeys()])
@@ -37,6 +54,10 @@ onMounted(async () => {
   try {
     const uRes = await developerApi.getUsageSummary({ start_date: startDate, end_date: endDate })
     usage.value = uRes.data || { total_requests: 0, total_tokens: 0, total_cost: 0 }
+  } catch(e) {}
+  try {
+    const sRes = await developerApi.listSubscriptions()
+    subscriptions.value = sRes.data || []
   } catch(e) {}
 })
 </script>
